@@ -5,7 +5,7 @@ import asyncio
 import json
 import os
 import redis.asyncio as redis
-from src.data_feed.recorder import MessageRecorder
+from data_feed.recorder import MessageRecorder
 
 async def monitor_redis_stream(redis_client: redis.Redis, stream_key: str, count: int = 5):
     """monitor redis stream for messages

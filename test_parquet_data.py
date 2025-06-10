@@ -3,7 +3,7 @@ test script for parquet writing
 """
 import asyncio
 import os
-from src.data_feed.recorder import MessageRecorder
+from data_feed.recorder import MessageRecorder
 
 async def main():
     """main function"""
