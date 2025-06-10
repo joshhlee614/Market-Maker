@@ -7,6 +7,7 @@ import json
 from unittest.mock import AsyncMock, patch
 
 import pytest
+from redis.exceptions import ConnectionError as RedisConnectionError
 from websockets.exceptions import ConnectionClosedOK
 
 from data_feed.recorder import MessageRecorder
@@ -211,3 +212,68 @@ async def test_recorder_stop(mock_redis, sample_depth_update):
             # Verify cleanup
             assert not recorder._running
             assert mock_redis.aclose.call_count == 1
+
+
+@pytest.mark.asyncio
+async def test_recorder_redis_connection_error():
+    """test handling of redis connection errors"""
+    with patch("redis.asyncio.from_url", side_effect=RedisConnectionError):
+        with pytest.raises(RedisConnectionError):
+            MessageRecorder(redis_url="redis://invalid")
+
+
+@pytest.mark.asyncio
+async def test_recorder_redis_maxlen(mock_redis, sample_depth_update):
+    """test redis stream maxlen enforcement"""
+    with patch("redis.asyncio.from_url", return_value=mock_redis):
+        with patch("data_feed.recorder.BinanceWebSocket") as mock_ws_class:
+            # Setup mock websocket
+            mock_ws = MockWebSocket(messages=[sample_depth_update])
+            mock_ws_class.return_value = mock_ws
+
+            # Create recorder
+            recorder = MessageRecorder()
+
+            # Run with timeout
+            try:
+                await asyncio.wait_for(recorder.start(), timeout=1.0)
+            except asyncio.TimeoutError:
+                pass  # Expected as the recorder runs indefinitely
+            finally:
+                await recorder.stop()
+
+            # Verify maxlen was set
+            call_args = mock_redis.xadd.call_args
+            assert "maxlen" in call_args[1]
+            assert call_args[1]["maxlen"] == 100000
+
+
+@pytest.mark.asyncio
+async def test_recorder_concurrent_writes(mock_redis, sample_depth_update):
+    """test concurrent writes to redis stream"""
+    with patch("redis.asyncio.from_url", return_value=mock_redis):
+        with patch("data_feed.recorder.BinanceWebSocket") as mock_ws_class:
+            # Setup mock websocket with multiple messages
+            messages = [sample_depth_update] * 3
+            mock_ws = MockWebSocket(messages=messages)
+            mock_ws_class.return_value = mock_ws
+
+            # Create recorder
+            recorder = MessageRecorder()
+
+            # Run with timeout
+            try:
+                await asyncio.wait_for(recorder.start(), timeout=1.0)
+            except asyncio.TimeoutError:
+                pass  # Expected as the recorder runs indefinitely
+            finally:
+                await recorder.stop()
+
+            # Verify all messages were written
+            assert mock_redis.xadd.call_count == 3
+
+            # Verify messages were written in order
+            calls = mock_redis.xadd.call_args_list
+            for i, call in enumerate(calls):
+                stored_data = json.loads(call[1]["fields"]["data"])
+                assert stored_data == sample_depth_update
