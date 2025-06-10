@@ -2,9 +2,11 @@
 Basic test to verify pytest setup is working correctly.
 """
 
+
 def test_dummy():
     """Simple test that always passes."""
     assert True
+
 
 def test_basic_math():
     """Test basic arithmetic to verify test runner."""
