@@ -1,0 +1,168 @@
+"""
+message recorder module for writing websocket messages to redis stream
+
+This module provides the MessageRecorder class which:
+1. Connects to a Binance WebSocket stream for market data
+2. Validates incoming messages using schemas
+3. Writes valid messages to a Redis stream
+"""
+import asyncio
+import json
+import logging
+from typing import Optional, Dict, Any
+
+import redis.asyncio as redis
+from dataclasses import asdict
+from websockets.exceptions import ConnectionClosedOK
+
+from .binance_ws import BinanceWebSocket
+from .schemas import DepthUpdate
+
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
+class MessageRecorder:
+    """Records WebSocket messages to Redis stream
+    
+    This class handles:
+    - Connection to Binance WebSocket
+    - Message validation
+    - Writing to Redis stream
+    - Proper cleanup of resources
+    
+    Attributes:
+        redis_client: Redis client for stream operations
+        symbol: Trading pair symbol being recorded
+        ws_client: WebSocket client for market data
+        stream_key: Redis stream key for storing messages
+        _running: Internal flag for controlling the recording loop
+        _cleanup_done: Internal flag for preventing double cleanup
+    """
+
+    def __init__(self, redis_url: str = "redis://localhost:6379", symbol: str = "btcusdt") -> None:
+        """Initialize recorder
+        
+        Args:
+            redis_url: Redis connection URL
+            symbol: Trading pair symbol to record
+        """
+        self.redis_client = redis.from_url(redis_url)
+        self.symbol = symbol.lower()
+        self.ws_client = BinanceWebSocket(symbol=self.symbol)
+        self.stream_key = f"stream:lob:{self.symbol}"
+        self._running = False
+        self._cleanup_done = False
+
+    async def start(self) -> None:
+        """Start recording messages from WebSocket to Redis
+        
+        This method:
+        1. Connects to the WebSocket
+        2. Subscribes to the depth stream
+        3. Processes messages until stopped
+        4. Handles cleanup on error
+        
+        Raises:
+            Exception: If connection fails or error during processing
+        """
+        try:
+            # connect to websocket
+            await self.ws_client.connect()
+            await self.ws_client.subscribe()
+            
+            self._running = True
+            logger.info(f"Started recording {self.symbol} depth updates")
+
+            # record messages until stopped
+            while self._running and self.ws_client.is_connected():
+                try:
+                    message = await self.ws_client.receive()
+                    
+                    if not message:
+                        continue
+
+                    # validate and parse message
+                    try:
+                        depth_update = DepthUpdate(**message)
+                        await self._record_message(asdict(depth_update))
+                    except Exception as e:
+                        logger.error(f"Error processing message: {e}")
+                        continue
+                        
+                except ConnectionClosedOK:
+                    logger.info("WebSocket connection closed normally")
+                    break
+                except Exception as e:
+                    logger.error(f"Error receiving message: {e}")
+                    break
+
+        except Exception as e:
+            logger.error(f"Error in recorder: {e}")
+        finally:
+            await self.stop()
+
+    async def stop(self) -> None:
+        """Stop recording and cleanup resources
+        
+        This method:
+        1. Stops the recording loop
+        2. Unsubscribes from WebSocket
+        3. Closes WebSocket connection
+        4. Closes Redis connection
+        """
+        if self._cleanup_done:
+            return
+            
+        self._running = False
+        
+        if self.ws_client:
+            try:
+                await self.ws_client.unsubscribe()
+                await self.ws_client.disconnect()
+            except Exception as e:
+                logger.error(f"Error disconnecting from WebSocket: {e}")
+
+        if self.redis_client:
+            try:
+                await self.redis_client.aclose()
+            except Exception as e:
+                logger.error(f"Error closing Redis connection: {e}")
+                
+        self._cleanup_done = True
+        logger.info("Stopped recording messages")
+
+    async def _record_message(self, message: Dict[str, Any]) -> None:
+        """Record message to Redis stream
+        
+        Args:
+            message: Validated message data to record
+            
+        Raises:
+            Exception: If error writing to Redis
+        """
+        try:
+            # write to redis stream
+            await self.redis_client.xadd(
+                self.stream_key,
+                fields={"data": json.dumps(message)},
+                maxlen=100000  # keep last 100k messages
+            )
+        except Exception as e:
+            logger.error(f"Error recording message to Redis: {e}")
+            raise
+
+async def main() -> None:
+    """Main function for testing the recorder"""
+    recorder = MessageRecorder()
+    try:
+        await recorder.start()
+    except KeyboardInterrupt:
+        logger.info("Stopping recorder...")
+    finally:
+        await recorder.stop()
+
+if __name__ == "__main__":
+    asyncio.run(main()) 
