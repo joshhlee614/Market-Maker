@@ -4,12 +4,12 @@ install:
 	pip install -r requirements.txt
 
 test:
-	pytest tests/
+	PYTHONPATH=src pytest tests/
 
 lint:
-	flake8 src/ tests/
-	black --check src/ tests/
-	isort --check-only src/ tests/
+	PYTHONPATH=src flake8 src/ tests/
+	PYTHONPATH=src black --check src/ tests/
+	PYTHONPATH=src isort --check-only src/ tests/
 
 format:
 	black src/ tests/
