@@ -111,7 +111,7 @@ class ParquetWriter:
         Returns:
             Path to Parquet file
         """
-        date_str = date.strftime('%Y%m%d')
+        date_str = date.strftime("%Y%m%d")
         filename = f"{self.symbol}_{date_str}.parquet"
         path = self.base_path / filename  # noqa: E501
         return path
@@ -123,8 +123,7 @@ class ParquetWriter:
             message_time: Message timestamp in milliseconds
         """
         message_date = datetime.datetime.fromtimestamp(
-            message_time / 1000.0,
-            tz=datetime.UTC
+            message_time / 1000.0, tz=datetime.UTC
         ).date()
 
         if message_date != self.current_date:
@@ -142,13 +141,9 @@ class ParquetWriter:
             schema = self.schema
             compression = "snappy"
             self.writer = pq.ParquetWriter(  # noqa: E501
-                current_file_str,
-                schema=schema,
-                compression=compression
+                current_file_str, schema=schema, compression=compression
             )
-            logger.info(
-                f"Rotated to new Parquet file: {self.current_file}"
-            )
+            logger.info(f"Rotated to new Parquet file: {self.current_file}")
 
     def write(self, message: Dict[str, Any]) -> None:
         """Write message to Parquet file

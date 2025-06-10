@@ -68,10 +68,8 @@ def test_file_rotation(test_data_dir, sample_depth_update):
     expected_date = datetime.datetime.fromtimestamp(
         sample_depth_update["E"] / 1000.0, tz=datetime.UTC
     ).date()
-    expected_file = (
-        test_data_dir / (
-            f"btcusdt_{expected_date.strftime('%Y%m%d')}.parquet"
-        )
+    expected_file = test_data_dir / (
+        f"btcusdt_{expected_date.strftime('%Y%m%d')}.parquet"
     )
     assert expected_file.exists()
 
@@ -91,9 +89,7 @@ def test_message_persistence(test_data_dir, sample_depth_update):
     expected_date = datetime.datetime.fromtimestamp(
         sample_depth_update["E"] / 1000.0, tz=datetime.UTC
     ).date()
-    file_path = test_data_dir / (
-        f"btcusdt_{expected_date.strftime('%Y%m%d')}.parquet"
-    )
+    file_path = test_data_dir / (f"btcusdt_{expected_date.strftime('%Y%m%d')}.parquet")
 
     df = pd.read_parquet(file_path)
     assert len(df) == 1
@@ -152,9 +148,7 @@ def test_multiple_messages(test_data_dir, sample_depth_update):
     expected_date = datetime.datetime.fromtimestamp(
         sample_depth_update["E"] / 1000.0, tz=datetime.UTC
     ).date()
-    file_path = test_data_dir / (
-        f"btcusdt_{expected_date.strftime('%Y%m%d')}.parquet"
-    )
+    file_path = test_data_dir / (f"btcusdt_{expected_date.strftime('%Y%m%d')}.parquet")
 
     df = pd.read_parquet(file_path)
     assert len(df) == 2
@@ -185,15 +179,9 @@ async def test_parquet_writer_initialization():
 
 
 @pytest.mark.asyncio
-async def test_parquet_writer_write_message(
-    mock_parquet_writer,
-    sample_depth_update
-):
+async def test_parquet_writer_write_message(mock_parquet_writer, sample_depth_update):
     """test writing message to parquet file"""
-    with patch(
-        "pyarrow.parquet.ParquetWriter",
-        return_value=mock_parquet_writer
-    ):
+    with patch("pyarrow.parquet.ParquetWriter", return_value=mock_parquet_writer):
         writer = ParquetWriter()
         await writer.write_message(sample_depth_update)
         mock_parquet_writer.write.assert_called_once()
@@ -202,10 +190,7 @@ async def test_parquet_writer_write_message(
 @pytest.mark.asyncio
 async def test_parquet_writer_write_invalid_message(mock_parquet_writer):
     """test writing invalid message to parquet file"""
-    with patch(
-        "pyarrow.parquet.ParquetWriter",
-        return_value=mock_parquet_writer
-    ):
+    with patch("pyarrow.parquet.ParquetWriter", return_value=mock_parquet_writer):
         writer = ParquetWriter()
         await writer.write_message({"invalid": "message"})
         mock_parquet_writer.write.assert_not_called()
@@ -214,10 +199,7 @@ async def test_parquet_writer_write_invalid_message(mock_parquet_writer):
 @pytest.mark.asyncio
 async def test_parquet_writer_close(mock_parquet_writer):
     """test closing parquet writer"""
-    with patch(
-        "pyarrow.parquet.ParquetWriter",
-        return_value=mock_parquet_writer
-    ):
+    with patch("pyarrow.parquet.ParquetWriter", return_value=mock_parquet_writer):
         writer = ParquetWriter()
         await writer.close()
         mock_parquet_writer.close.assert_called_once()
@@ -226,10 +208,7 @@ async def test_parquet_writer_close(mock_parquet_writer):
 @pytest.mark.asyncio
 async def test_parquet_writer_file_rotation(mock_parquet_writer):
     """test parquet file rotation"""
-    with patch(
-        "pyarrow.parquet.ParquetWriter",
-        return_value=mock_parquet_writer
-    ):
+    with patch("pyarrow.parquet.ParquetWriter", return_value=mock_parquet_writer):
         writer = ParquetWriter()
         initial_date = writer.current_date
         writer.current_date = None  # Force rotation
