@@ -6,35 +6,40 @@ This module provides the MessageRecorder class which:
 2. Validates incoming messages using schemas
 3. Writes valid messages to Redis stream and Parquet files
 """
+
 import asyncio
 import json
 import logging
-from typing import Optional, Dict, Any
+from dataclasses import asdict
+from typing import Any, Dict
 
 import redis.asyncio as redis
-from dataclasses import asdict
 from websockets.exceptions import ConnectionClosedOK
 
 from .binance_ws import BinanceWebSocket
-from .schemas import DepthUpdate
 from .parquet_writer import ParquetWriter
+from .schemas import DepthUpdate
 
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    format=(
+        "%(asctime)s - %(name)s - "
+        "%(levelname)s - %(message)s"
+    )
 )
 logger = logging.getLogger(__name__)
 
+
 class MessageRecorder:
     """Records WebSocket messages to Redis stream and Parquet files
-    
+
     This class handles:
     - Connection to Binance WebSocket
     - Message validation
     - Writing to Redis stream
     - Writing to Parquet files
     - Proper cleanup of resources
-    
+
     Attributes:
         redis_client: Redis client for stream operations
         symbol: Trading pair symbol being recorded
@@ -45,9 +50,11 @@ class MessageRecorder:
         _cleanup_done: Internal flag for preventing double cleanup
     """
 
-    def __init__(self, redis_url: str = "redis://localhost:6379", symbol: str = "btcusdt") -> None:
+    def __init__(
+        self, redis_url: str = "redis://localhost:6379", symbol: str = "btcusdt"
+    ) -> None:
         """Initialize recorder
-        
+
         Args:
             redis_url: Redis connection URL
             symbol: Trading pair symbol to record
@@ -62,13 +69,13 @@ class MessageRecorder:
 
     async def start(self) -> None:
         """Start recording messages from WebSocket to Redis and Parquet
-        
+
         This method:
         1. Connects to the WebSocket
         2. Subscribes to the depth stream
         3. Processes messages until stopped
         4. Handles cleanup on error
-        
+
         Raises:
             Exception: If connection fails or error during processing
         """
@@ -76,7 +83,7 @@ class MessageRecorder:
             # connect to websocket
             await self.ws_client.connect()
             await self.ws_client.subscribe()
-            
+
             self._running = True
             logger.info(f"Started recording {self.symbol} depth updates")
 
@@ -84,7 +91,7 @@ class MessageRecorder:
             while self._running and self.ws_client.is_connected():
                 try:
                     message = await self.ws_client.receive()
-                    
+
                     if not message:
                         continue
 
@@ -95,7 +102,7 @@ class MessageRecorder:
                     except Exception as e:
                         logger.error(f"Error processing message: {e}")
                         continue
-                        
+
                 except ConnectionClosedOK:
                     logger.info("WebSocket connection closed normally")
                     break
@@ -110,7 +117,7 @@ class MessageRecorder:
 
     async def stop(self) -> None:
         """Stop recording and cleanup resources
-        
+
         This method:
         1. Stops the recording loop
         2. Unsubscribes from WebSocket
@@ -120,9 +127,9 @@ class MessageRecorder:
         """
         if self._cleanup_done:
             return
-            
+
         self._running = False
-        
+
         if self.ws_client:
             try:
                 await self.ws_client.unsubscribe()
@@ -135,39 +142,44 @@ class MessageRecorder:
                 await self.redis_client.aclose()
             except Exception as e:
                 logger.error(f"Error closing Redis connection: {e}")
-                
+
         if self.parquet_writer:
             try:
                 self.parquet_writer.close()
             except Exception as e:
                 logger.error(f"Error closing Parquet writer: {e}")
-                
+
         self._cleanup_done = True
         logger.info("Stopped recording messages")
 
     async def _record_message(self, message: Dict[str, Any]) -> None:
         """Record message to Redis stream and Parquet file
-        
+
         Args:
             message: Validated message data to record
-            
+
         Raises:
             Exception: If error writing message
         """
         try:
             # write to redis stream
-            await self.redis_client.xadd(
-                self.stream_key,
-                fields={"data": json.dumps(message)},
-                maxlen=100000  # keep last 100k messages
+            json_data = json.dumps(message)
+            stream_key = self.stream_key
+            fields = {"data": json_data}
+            maxlen = 100000  # keep last 100k messages
+            await self.redis_client.xadd(  # noqa: E501
+                stream_key,
+                fields=fields,
+                maxlen=maxlen,
             )
-            
+
             # write to parquet
             self.parquet_writer.write(message)
-            
+
         except Exception as e:
             logger.error(f"Error recording message: {e}")
             raise
+
 
 async def main() -> None:
     """Main function for testing the recorder"""
@@ -179,5 +191,6 @@ async def main() -> None:
     finally:
         await recorder.stop()
 
+
 if __name__ == "__main__":
-    asyncio.run(main()) 
+    asyncio.run(main())
