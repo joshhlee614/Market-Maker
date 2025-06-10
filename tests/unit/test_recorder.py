@@ -4,9 +4,9 @@ unit tests for message recorder
 
 import asyncio
 import json
-import pytest
 from unittest.mock import AsyncMock, patch
 
+import pytest
 from websockets.exceptions import ConnectionClosedOK
 
 from src.data_feed.recorder import MessageRecorder

@@ -4,11 +4,11 @@ unit tests for parquet writer
 
 import datetime
 import json
-import pytest
 from unittest.mock import AsyncMock, patch
 
 import pandas as pd
 import pyarrow as pa
+import pytest
 
 from src.data_feed.parquet_writer import (
     ParquetWriter,
