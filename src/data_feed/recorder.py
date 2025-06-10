@@ -4,7 +4,7 @@ message recorder module for writing websocket messages to redis stream
 This module provides the MessageRecorder class which:
 1. Connects to a Binance WebSocket stream for market data
 2. Validates incoming messages using schemas
-3. Writes valid messages to a Redis stream
+3. Writes valid messages to Redis stream and Parquet files
 """
 import asyncio
 import json
@@ -17,6 +17,7 @@ from websockets.exceptions import ConnectionClosedOK
 
 from .binance_ws import BinanceWebSocket
 from .schemas import DepthUpdate
+from .parquet_writer import ParquetWriter
 
 logging.basicConfig(
     level=logging.INFO,
@@ -25,12 +26,13 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 class MessageRecorder:
-    """Records WebSocket messages to Redis stream
+    """Records WebSocket messages to Redis stream and Parquet files
     
     This class handles:
     - Connection to Binance WebSocket
     - Message validation
     - Writing to Redis stream
+    - Writing to Parquet files
     - Proper cleanup of resources
     
     Attributes:
@@ -38,6 +40,7 @@ class MessageRecorder:
         symbol: Trading pair symbol being recorded
         ws_client: WebSocket client for market data
         stream_key: Redis stream key for storing messages
+        parquet_writer: Writer for Parquet files
         _running: Internal flag for controlling the recording loop
         _cleanup_done: Internal flag for preventing double cleanup
     """
@@ -53,11 +56,12 @@ class MessageRecorder:
         self.symbol = symbol.lower()
         self.ws_client = BinanceWebSocket(symbol=self.symbol)
         self.stream_key = f"stream:lob:{self.symbol}"
+        self.parquet_writer = ParquetWriter(symbol=self.symbol)
         self._running = False
         self._cleanup_done = False
 
     async def start(self) -> None:
-        """Start recording messages from WebSocket to Redis
+        """Start recording messages from WebSocket to Redis and Parquet
         
         This method:
         1. Connects to the WebSocket
@@ -112,6 +116,7 @@ class MessageRecorder:
         2. Unsubscribes from WebSocket
         3. Closes WebSocket connection
         4. Closes Redis connection
+        5. Closes Parquet writer
         """
         if self._cleanup_done:
             return
@@ -131,17 +136,23 @@ class MessageRecorder:
             except Exception as e:
                 logger.error(f"Error closing Redis connection: {e}")
                 
+        if self.parquet_writer:
+            try:
+                self.parquet_writer.close()
+            except Exception as e:
+                logger.error(f"Error closing Parquet writer: {e}")
+                
         self._cleanup_done = True
         logger.info("Stopped recording messages")
 
     async def _record_message(self, message: Dict[str, Any]) -> None:
-        """Record message to Redis stream
+        """Record message to Redis stream and Parquet file
         
         Args:
             message: Validated message data to record
             
         Raises:
-            Exception: If error writing to Redis
+            Exception: If error writing message
         """
         try:
             # write to redis stream
@@ -150,8 +161,12 @@ class MessageRecorder:
                 fields={"data": json.dumps(message)},
                 maxlen=100000  # keep last 100k messages
             )
+            
+            # write to parquet
+            self.parquet_writer.write(message)
+            
         except Exception as e:
-            logger.error(f"Error recording message to Redis: {e}")
+            logger.error(f"Error recording message: {e}")
             raise
 
 async def main() -> None:
