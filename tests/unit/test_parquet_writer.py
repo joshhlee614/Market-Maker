@@ -10,7 +10,7 @@ import pandas as pd
 import pyarrow as pa
 import pytest
 
-from src.data_feed.parquet_writer import (
+from data_feed.parquet_writer import (
     ParquetWriter,
     _convert_list_to_string,
     _convert_string_to_list,

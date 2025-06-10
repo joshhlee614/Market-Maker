@@ -8,7 +8,7 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from websockets.exceptions import ConnectionClosedOK
 
-from src.data_feed.binance_ws import BinanceWebSocket
+from data_feed.binance_ws import BinanceWebSocket
 
 
 @pytest.fixture
