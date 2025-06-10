@@ -1,10 +1,11 @@
 """
-Tests for Binance WebSocket client.
+unit tests for binance websocket client
 """
 import json
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+import pytest_asyncio
 
 from src.data_feed.binance_ws import BinanceWebSocket
 
@@ -23,6 +24,25 @@ def mock_ws():
         "a": [["50001.00", "0.800"]]
     }))
     return mock
+
+
+@pytest.mark.asyncio
+async def test_binance_ws_connect():
+    """test websocket connection"""
+    client = BinanceWebSocket()
+    await client.connect()
+    assert client.ws is not None
+    await client.close()
+
+
+@pytest.mark.asyncio
+async def test_binance_ws_receive():
+    """test receiving messages from websocket"""
+    client = BinanceWebSocket()
+    await client.connect()
+    await client.receive_messages()
+    assert client.message_count == 10
+    await client.close()
 
 
 @pytest.mark.asyncio
