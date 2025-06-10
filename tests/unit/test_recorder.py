@@ -9,7 +9,7 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from websockets.exceptions import ConnectionClosedOK
 
-from src.data_feed.recorder import MessageRecorder
+from data_feed.recorder import MessageRecorder
 
 
 class MockWebSocket:
@@ -107,7 +107,7 @@ async def test_recorder_initialization():
 async def test_recorder_successful_message_processing(mock_redis, sample_depth_update):
     """test successful message processing"""
     with patch("redis.asyncio.from_url", return_value=mock_redis):
-        with patch("src.data_feed.recorder.BinanceWebSocket") as mock_ws_class:
+        with patch("data_feed.recorder.BinanceWebSocket") as mock_ws_class:
             # Setup mock websocket
             mock_ws = MockWebSocket(messages=[sample_depth_update])
             mock_ws_class.return_value = mock_ws
@@ -142,7 +142,7 @@ async def test_recorder_successful_message_processing(mock_redis, sample_depth_u
 async def test_recorder_connection_closed_handling(mock_redis):
     """test handling of connection closed"""
     with patch("redis.asyncio.from_url", return_value=mock_redis):
-        with patch("src.data_feed.recorder.BinanceWebSocket") as mock_ws_class:
+        with patch("data_feed.recorder.BinanceWebSocket") as mock_ws_class:
             # Setup mock websocket that raises ConnectionClosedOK
             mock_ws = MockWebSocket(messages=[ConnectionClosedOK(None, None)])
             mock_ws_class.return_value = mock_ws
@@ -167,7 +167,7 @@ async def test_recorder_connection_closed_handling(mock_redis):
 async def test_recorder_invalid_message_handling(mock_redis):
     """test handling of invalid messages"""
     with patch("redis.asyncio.from_url", return_value=mock_redis):
-        with patch("src.data_feed.recorder.BinanceWebSocket") as mock_ws_class:
+        with patch("data_feed.recorder.BinanceWebSocket") as mock_ws_class:
             # Setup mock websocket with invalid message
             invalid_message = {"invalid": "message"}
             mock_ws = MockWebSocket(messages=[invalid_message])
@@ -192,7 +192,7 @@ async def test_recorder_invalid_message_handling(mock_redis):
 async def test_recorder_stop(mock_redis, sample_depth_update):
     """test recorder stop functionality"""
     with patch("redis.asyncio.from_url", return_value=mock_redis):
-        with patch("src.data_feed.recorder.BinanceWebSocket") as mock_ws_class:
+        with patch("data_feed.recorder.BinanceWebSocket") as mock_ws_class:
             # Setup mock websocket
             mock_ws = MockWebSocket(messages=[sample_depth_update])
             mock_ws_class.return_value = mock_ws
