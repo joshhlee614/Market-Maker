@@ -165,3 +165,18 @@ class OrderBook:
             book[order.price] = []
         book[order.price].append(order)
         self.order_map[order.order_id] = (order.side, order.price)
+
+    def get_snapshot(self):
+        """
+        Returns the current bids and asks as lists of [price, quantity] string pairs.
+        Bids are sorted descending, asks ascending.
+        """
+        bids = []
+        for price in sorted(self.bids.keys(), reverse=True):
+            total_qty = sum(order.size for order in self.bids[price])
+            bids.append([str(price), str(total_qty)])
+        asks = []
+        for price in sorted(self.asks.keys()):
+            total_qty = sum(order.size for order in self.asks[price])
+            asks.append([str(price), str(total_qty)])
+        return bids, asks
