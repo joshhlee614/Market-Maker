@@ -70,25 +70,25 @@ private:
         }
         std::vector<Fill> fills;
         
-        for (auto& [price, level] : asks) {
-            if (price > order->price) break;
+        auto ask_it = asks.begin();
+        while (ask_it != asks.end() && order->size > 0) {
+            if (ask_it->first > order->price) break;
             
-            while (!level.orders.empty() && order->size > 0) {
-                auto maker = level.orders.front();
-                if (!maker) {
-                    level.orders.erase(level.orders.begin());
+            auto& level = ask_it->second;
+            auto order_it = level.orders.begin();
+            
+            while (order_it != level.orders.end() && order->size > 0) {
+                auto maker = *order_it;
+                if (!maker || maker->size <= 0) {
+                    order_it = level.orders.erase(order_it);
                     continue;
                 }
-                if (maker->size <= 0) {
-                    level.orders.erase(level.orders.begin());
-                    continue;
-                }
-                double match_size = std::min(order->size, maker->size);
                 
+                double match_size = std::min(order->size, maker->size);
                 fills.emplace_back(
                     order->order_id,
                     maker->order_id,
-                    price,
+                    ask_it->first,
                     match_size,
                     order->timestamp
                 );
@@ -97,12 +97,17 @@ private:
                 maker->size -= match_size;
                 
                 if (maker->size <= 0) {
-                    level.orders.erase(level.orders.begin());
                     order_map.erase(maker->order_id);
-                    if (level.orders.empty()) {
-                        asks.erase(price);
-                    }
+                    order_it = level.orders.erase(order_it);
+                } else {
+                    ++order_it;
                 }
+            }
+            
+            if (level.orders.empty()) {
+                ask_it = asks.erase(ask_it);
+            } else {
+                ++ask_it;
             }
         }
         
@@ -118,25 +123,25 @@ private:
         }
         std::vector<Fill> fills;
         
-        for (auto& [price, level] : bids) {
-            if (price < order->price) break;
+        auto bid_it = bids.begin();
+        while (bid_it != bids.end() && order->size > 0) {
+            if (bid_it->first < order->price) break;
             
-            while (!level.orders.empty() && order->size > 0) {
-                auto maker = level.orders.front();
-                if (!maker) {
-                    level.orders.erase(level.orders.begin());
+            auto& level = bid_it->second;
+            auto order_it = level.orders.begin();
+            
+            while (order_it != level.orders.end() && order->size > 0) {
+                auto maker = *order_it;
+                if (!maker || maker->size <= 0) {
+                    order_it = level.orders.erase(order_it);
                     continue;
                 }
-                if (maker->size <= 0) {
-                    level.orders.erase(level.orders.begin());
-                    continue;
-                }
-                double match_size = std::min(order->size, maker->size);
                 
+                double match_size = std::min(order->size, maker->size);
                 fills.emplace_back(
                     order->order_id,
                     maker->order_id,
-                    price,
+                    bid_it->first,
                     match_size,
                     order->timestamp
                 );
@@ -145,12 +150,17 @@ private:
                 maker->size -= match_size;
                 
                 if (maker->size <= 0) {
-                    level.orders.erase(level.orders.begin());
                     order_map.erase(maker->order_id);
-                    if (level.orders.empty()) {
-                        bids.erase(price);
-                    }
+                    order_it = level.orders.erase(order_it);
+                } else {
+                    ++order_it;
                 }
+            }
+            
+            if (level.orders.empty()) {
+                bid_it = bids.erase(bid_it);
+            } else {
+                ++bid_it;
             }
         }
         
