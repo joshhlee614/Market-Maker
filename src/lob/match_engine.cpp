@@ -208,11 +208,11 @@ public:
             if (order->size > 0) {
                 add_to_book(order);
             }
+            
+            return fills;
         } catch (const std::exception& e) {
             throw std::runtime_error(std::string("Error in insert: ") + e.what());
         }
-        
-        return fills;
     }
     
     bool cancel(const std::string& order_id) {
@@ -224,39 +224,45 @@ public:
         if (it == order_map.end()) {
             return false;
         }
+        
         auto [side, price] = it->second;
+        order_map.erase(it);
+        
         if (side == Side::BUY) {
-            auto level_it = bids.find(price);
-            if (level_it != bids.end()) {
-                auto& orders = level_it->second.orders;
-                for (auto order_it = orders.begin(); order_it != orders.end(); ++order_it) {
-                    if ((*order_it) && (*order_it)->order_id == order_id) {
-                        orders.erase(order_it);
-                        if (orders.empty()) {
-                            bids.erase(level_it);
+            auto bid_it = bids.find(price);
+            if (bid_it != bids.end()) {
+                auto& orders = bid_it->second.orders;
+                orders.erase(
+                    std::remove_if(orders.begin(), orders.end(),
+                        [&order_id](const std::shared_ptr<Order>& order) {
+                            return order && order->order_id == order_id;
                         }
-                        order_map.erase(it);
-                        return true;
-                    }
+                    ),
+                    orders.end()
+                );
+                if (orders.empty()) {
+                    bids.erase(bid_it);
                 }
             }
         } else {
-            auto level_it = asks.find(price);
-            if (level_it != asks.end()) {
-                auto& orders = level_it->second.orders;
-                for (auto order_it = orders.begin(); order_it != orders.end(); ++order_it) {
-                    if ((*order_it) && (*order_it)->order_id == order_id) {
-                        orders.erase(order_it);
-                        if (orders.empty()) {
-                            asks.erase(level_it);
+            auto ask_it = asks.find(price);
+            if (ask_it != asks.end()) {
+                auto& orders = ask_it->second.orders;
+                orders.erase(
+                    std::remove_if(orders.begin(), orders.end(),
+                        [&order_id](const std::shared_ptr<Order>& order) {
+                            return order && order->order_id == order_id;
                         }
-                        order_map.erase(it);
-                        return true;
-                    }
+                    ),
+                    orders.end()
+                );
+                if (orders.empty()) {
+                    asks.erase(ask_it);
                 }
             }
         }
-        return false;
+        
+        return true;
     }
 };
 
