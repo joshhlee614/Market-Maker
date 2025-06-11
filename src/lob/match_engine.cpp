@@ -62,6 +62,9 @@ private:
     std::map<std::string, std::pair<Side, double>> order_map;
 
     std::vector<Fill> match_buy(std::shared_ptr<Order>& order) {
+        if (!order) {
+            throw std::invalid_argument("Order cannot be null");
+        }
         std::vector<Fill> fills;
         
         for (auto& [price, level] : asks) {
@@ -69,6 +72,10 @@ private:
             
             while (!level.orders.empty() && order->size > 0) {
                 auto maker = level.orders.front();
+                if (!maker) {
+                    level.orders.erase(level.orders.begin());
+                    continue;
+                }
                 double match_size = std::min(order->size, maker->size);
                 
                 fills.emplace_back(
@@ -82,7 +89,7 @@ private:
                 order->size -= match_size;
                 maker->size -= match_size;
                 
-                if (maker->size == 0) {
+                if (maker->size <= 0) {
                     level.orders.erase(level.orders.begin());
                     order_map.erase(maker->order_id);
                     if (level.orders.empty()) {
@@ -96,6 +103,9 @@ private:
     }
     
     std::vector<Fill> match_sell(std::shared_ptr<Order>& order) {
+        if (!order) {
+            throw std::invalid_argument("Order cannot be null");
+        }
         std::vector<Fill> fills;
         
         for (auto& [price, level] : bids) {
@@ -103,6 +113,10 @@ private:
             
             while (!level.orders.empty() && order->size > 0) {
                 auto maker = level.orders.front();
+                if (!maker) {
+                    level.orders.erase(level.orders.begin());
+                    continue;
+                }
                 double match_size = std::min(order->size, maker->size);
                 
                 fills.emplace_back(
@@ -116,7 +130,7 @@ private:
                 order->size -= match_size;
                 maker->size -= match_size;
                 
-                if (maker->size == 0) {
+                if (maker->size <= 0) {
                     level.orders.erase(level.orders.begin());
                     order_map.erase(maker->order_id);
                     if (level.orders.empty()) {
@@ -130,6 +144,9 @@ private:
     }
     
     void add_to_book(const std::shared_ptr<Order>& order) {
+        if (!order) {
+            throw std::invalid_argument("Order cannot be null");
+        }
         if (order->side == Side::BUY) {
             bids[order->price].orders.push_back(order);
         } else {
@@ -141,6 +158,19 @@ private:
 public:
     std::vector<Fill> insert(const std::string& order_id, Side side, 
                             double price, double size, int64_t timestamp) {
+        if (order_id.empty()) {
+            throw std::invalid_argument("Order ID cannot be empty");
+        }
+        if (price <= 0) {
+            throw std::invalid_argument("Price must be positive");
+        }
+        if (size <= 0) {
+            throw std::invalid_argument("Size must be positive");
+        }
+        if (timestamp < 0) {
+            throw std::invalid_argument("Timestamp must be non-negative");
+        }
+        
         auto order = std::make_shared<Order>(order_id, side, price, size, timestamp);
         std::vector<Fill> fills;
         
@@ -158,6 +188,10 @@ public:
     }
     
     bool cancel(const std::string& order_id) {
+        if (order_id.empty()) {
+            throw std::invalid_argument("Order ID cannot be empty");
+        }
+        
         auto it = order_map.find(order_id);
         if (it == order_map.end()) {
             return false;
@@ -168,7 +202,7 @@ public:
             if (level_it != bids.end()) {
                 auto& orders = level_it->second.orders;
                 for (auto order_it = orders.begin(); order_it != orders.end(); ++order_it) {
-                    if ((*order_it)->order_id == order_id) {
+                    if ((*order_it) && (*order_it)->order_id == order_id) {
                         orders.erase(order_it);
                         if (orders.empty()) {
                             bids.erase(level_it);
@@ -183,7 +217,7 @@ public:
             if (level_it != asks.end()) {
                 auto& orders = level_it->second.orders;
                 for (auto order_it = orders.begin(); order_it != orders.end(); ++order_it) {
-                    if ((*order_it)->order_id == order_id) {
+                    if ((*order_it) && (*order_it)->order_id == order_id) {
                         orders.erase(order_it);
                         if (orders.empty()) {
                             asks.erase(level_it);
