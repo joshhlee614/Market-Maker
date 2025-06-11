@@ -65,6 +65,9 @@ private:
         if (!order) {
             throw std::invalid_argument("Order cannot be null");
         }
+        if (order->size <= 0) {
+            throw std::invalid_argument("Order size must be positive");
+        }
         std::vector<Fill> fills;
         
         for (auto& [price, level] : asks) {
@@ -109,6 +112,9 @@ private:
     std::vector<Fill> match_sell(std::shared_ptr<Order>& order) {
         if (!order) {
             throw std::invalid_argument("Order cannot be null");
+        }
+        if (order->size <= 0) {
+            throw std::invalid_argument("Order size must be positive");
         }
         std::vector<Fill> fills;
         
@@ -155,6 +161,16 @@ private:
         if (!order) {
             throw std::invalid_argument("Order cannot be null");
         }
+        if (order->size <= 0) {
+            throw std::invalid_argument("Order size must be positive");
+        }
+        if (order->price <= 0) {
+            throw std::invalid_argument("Order price must be positive");
+        }
+        if (order->order_id.empty()) {
+            throw std::invalid_argument("Order ID cannot be empty");
+        }
+        
         if (order->side == Side::BUY) {
             bids[order->price].orders.push_back(order);
         } else {
@@ -182,14 +198,18 @@ public:
         auto order = std::make_shared<Order>(order_id, side, price, size, timestamp);
         std::vector<Fill> fills;
         
-        if (side == Side::BUY) {
-            fills = match_buy(order);
-        } else {
-            fills = match_sell(order);
-        }
-        
-        if (order->size > 0) {
-            add_to_book(order);
+        try {
+            if (side == Side::BUY) {
+                fills = match_buy(order);
+            } else {
+                fills = match_sell(order);
+            }
+            
+            if (order->size > 0) {
+                add_to_book(order);
+            }
+        } catch (const std::exception& e) {
+            throw std::runtime_error(std::string("Error in insert: ") + e.what());
         }
         
         return fills;
