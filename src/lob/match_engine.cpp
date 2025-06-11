@@ -76,6 +76,10 @@ private:
                     level.orders.erase(level.orders.begin());
                     continue;
                 }
+                if (maker->size <= 0) {
+                    level.orders.erase(level.orders.begin());
+                    continue;
+                }
                 double match_size = std::min(order->size, maker->size);
                 
                 fills.emplace_back(
@@ -114,6 +118,10 @@ private:
             while (!level.orders.empty() && order->size > 0) {
                 auto maker = level.orders.front();
                 if (!maker) {
+                    level.orders.erase(level.orders.begin());
+                    continue;
+                }
+                if (maker->size <= 0) {
                     level.orders.erase(level.orders.begin());
                     continue;
                 }
