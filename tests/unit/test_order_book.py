@@ -29,7 +29,7 @@ def test_insert_buy_order(order_book):
         side="buy",
         price=Decimal("50000.00"),
         size=Decimal("1.0"),
-        timestamp=1234567890
+        timestamp=1234567890,
     )
     fills = order_book.insert(order)
     assert len(fills) == 0
@@ -45,7 +45,7 @@ def test_insert_sell_order(order_book):
         side="sell",
         price=Decimal("50000.00"),
         size=Decimal("1.0"),
-        timestamp=1234567890
+        timestamp=1234567890,
     )
     fills = order_book.insert(order)
     assert len(fills) == 0
@@ -62,20 +62,18 @@ def test_match_buy_order(order_book):
         side="sell",
         price=Decimal("50000.00"),
         size=Decimal("1.0"),
-        timestamp=1234567890
+        timestamp=1234567890,
     )
     order_book.insert(sell_order)
-    
     # then insert a matching buy order
     buy_order = Order(
         order_id="2",
         side="buy",
         price=Decimal("50000.00"),
         size=Decimal("1.0"),
-        timestamp=1234567891
+        timestamp=1234567891,
     )
     fills = order_book.insert(buy_order)
-    
     assert len(fills) == 1
     assert fills[0].taker_order_id == "2"
     assert fills[0].maker_order_id == "1"
@@ -92,20 +90,18 @@ def test_match_sell_order(order_book):
         side="buy",
         price=Decimal("50000.00"),
         size=Decimal("1.0"),
-        timestamp=1234567890
+        timestamp=1234567890,
     )
     order_book.insert(buy_order)
-    
     # then insert a matching sell order
     sell_order = Order(
         order_id="2",
         side="sell",
         price=Decimal("50000.00"),
         size=Decimal("1.0"),
-        timestamp=1234567891
+        timestamp=1234567891,
     )
     fills = order_book.insert(sell_order)
-    
     assert len(fills) == 1
     assert fills[0].taker_order_id == "2"
     assert fills[0].maker_order_id == "1"
@@ -121,10 +117,9 @@ def test_cancel_order(order_book):
         side="buy",
         price=Decimal("50000.00"),
         size=Decimal("1.0"),
-        timestamp=1234567890
+        timestamp=1234567890,
     )
     order_book.insert(order)
-    
     cancelled = order_book.cancel("1")
     assert cancelled == order
     assert order.price not in order_book.bids
@@ -145,21 +140,19 @@ def test_partial_fill(order_book):
         side="sell",
         price=Decimal("50000.00"),
         size=Decimal("2.0"),
-        timestamp=1234567890
+        timestamp=1234567890,
     )
     order_book.insert(sell_order)
-    
     # insert a buy order for half the size
     buy_order = Order(
         order_id="2",
         side="buy",
         price=Decimal("50000.00"),
         size=Decimal("1.0"),
-        timestamp=1234567891
+        timestamp=1234567891,
     )
     fills = order_book.insert(buy_order)
-    
     assert len(fills) == 1
     assert fills[0].size == Decimal("1.0")
     assert sell_order.size == Decimal("1.0")  # remaining size
-    assert sell_order.price in order_book.asks  # sell order should still exist 
+    assert sell_order.price in order_book.asks  # sell order should still exist
