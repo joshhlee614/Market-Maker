@@ -180,3 +180,15 @@ class OrderBook:
             total_qty = sum(order.size for order in self.asks[price])
             asks.append([str(price), str(total_qty)])
         return bids, asks
+
+    def get_best_bid(self) -> Optional[Decimal]:
+        """return the highest bid price or None if no bids"""
+        if not self.bids:
+            return None
+        return max(self.bids.keys())
+
+    def get_best_ask(self) -> Optional[Decimal]:
+        """return the lowest ask price or None if no asks"""
+        if not self.asks:
+            return None
+        return min(self.asks.keys())

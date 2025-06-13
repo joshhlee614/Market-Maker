@@ -13,7 +13,7 @@ import logging
 from dataclasses import dataclass
 from decimal import Decimal
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Callable, Dict, List, Optional, Tuple
 
 import pandas as pd
 import pyarrow.parquet as pq
@@ -21,7 +21,6 @@ from pyarrow import Table
 
 from data_feed.schemas import DepthUpdate
 from lob.order_book import Order, OrderBook
-from strategy.naive_maker import quote_prices
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
@@ -84,28 +83,29 @@ class Simulator:
 
     def __init__(
         self,
-        symbol: str = "btcusdt",
-        data_path: str = "data/raw",
-        order_book: Optional[OrderBook] = None,
-        spread: Decimal = Decimal("0.001"),  # 0.1% spread
+        symbol: str,
+        data_path: str,
+        strategy: Callable,
+        spread: Decimal = Decimal("0.001"),
     ) -> None:
         """initialize simulator
 
         Args:
             symbol: trading pair symbol
             data_path: path to parquet files
-            order_book: optional order book instance
+            strategy: strategy function to use for quoting
             spread: fixed spread for naive maker
         """
         self.symbol = symbol.lower()
         self.data_path = Path(data_path)
-        self.order_book = order_book or OrderBook()
+        self.strategy = strategy
+        self.spread = spread
+        self.order_book = OrderBook()
         self.current_file: Optional[str] = None
         self.current_date: Optional[datetime.date] = None
         self.fills: List[Fill] = []
         self.position: Decimal = Decimal("0")
         self.pnl: Decimal = Decimal("0")
-        self.spread = spread
 
     def _get_file_path(self, date: datetime.date) -> Path:
         """get parquet file path for date
@@ -189,58 +189,62 @@ class Simulator:
         self._run_strategy(depth_update.E)
 
     def _run_strategy(self, timestamp: int) -> None:
-        """run naive maker strategy and track fills
-
-        Args:
-            timestamp: current timestamp
-        """
-        # Get current mid price
-        best_bid = max(self.order_book.bids.keys()) if self.order_book.bids else None
-        best_ask = min(self.order_book.asks.keys()) if self.order_book.asks else None
-
+        """run strategy and simulate fills"""
+        # Get current best bid/ask
+        best_bid = self.order_book.get_best_bid()
+        best_ask = self.order_book.get_best_ask()
         if not best_bid or not best_ask:
             return
 
+        # Calculate mid price
         mid_price = (best_bid + best_ask) / Decimal("2")
 
-        # Get quote prices from naive maker
-        bid_price, ask_price = quote_prices(mid_price, self.spread)
-
-        # Debug logging
-        print(
-            f"DEBUG: best_bid={best_bid}, best_ask={best_ask}, mid_price={mid_price}, "
-            f"bid_price={bid_price}, ask_price={ask_price}"
+        # Get strategy quotes
+        bid_price, ask_price, bid_size, ask_size = self.strategy(
+            mid_price=mid_price,
+            best_bid=best_bid,
+            best_ask=best_ask,
+            spread=self.spread,
         )
 
-        # Simulate fill if our bid equals the best bid (sell fill)
-        if bid_price == best_bid:
-            fill_size = min(self.order_book.bids[best_bid][0].size, Decimal("0.001"))
-            self.fills.append(
-                Fill(
-                    timestamp=timestamp,
-                    side="sell",
-                    price=best_bid,
-                    size=fill_size,
-                    order_id=f"strategy_ask_{timestamp}",
-                )
+        # Simulate fills
+        if bid_price >= best_bid:
+            self._simulate_fill(
+                timestamp=timestamp, side="buy", price=bid_price, size=bid_size
             )
-            self.position -= fill_size
-            self.pnl += fill_size * best_bid
 
-        # Simulate fill if our ask equals the best ask (buy fill)
-        if ask_price == best_ask:
-            fill_size = min(self.order_book.asks[best_ask][0].size, Decimal("0.001"))
-            self.fills.append(
-                Fill(
-                    timestamp=timestamp,
-                    side="buy",
-                    price=best_ask,
-                    size=fill_size,
-                    order_id=f"strategy_bid_{timestamp}",
-                )
+        if ask_price <= best_ask:
+            self._simulate_fill(
+                timestamp=timestamp, side="sell", price=ask_price, size=ask_size
             )
-            self.position += fill_size
-            self.pnl -= fill_size * best_ask
+
+    def _simulate_fill(
+        self, timestamp: int, side: str, price: Decimal, size: Decimal
+    ) -> None:
+        """Simulate a fill and update position/P&L
+
+        Args:
+            timestamp: fill timestamp
+            side: fill side ("buy" or "sell")
+            price: fill price
+            size: fill size
+        """
+        self.fills.append(
+            Fill(
+                timestamp=timestamp,
+                side=side,
+                price=price,
+                size=size,
+                order_id=f"strategy_{side}_{timestamp}",
+            )
+        )
+
+        if side == "buy":
+            self.position += size
+            self.pnl -= size * price
+        else:  # sell
+            self.position -= size
+            self.pnl += size * price
 
     def replay_date(self, date: datetime.date) -> None:
         """replay all messages for a specific date

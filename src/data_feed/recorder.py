@@ -10,8 +10,9 @@ This module provides the MessageRecorder class which:
 import asyncio
 import json
 import logging
+import time
 from dataclasses import asdict
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 import redis.asyncio as redis
 from websockets.exceptions import ConnectionClosedOK
@@ -45,24 +46,33 @@ class MessageRecorder:
         parquet_writer: Writer for Parquet files
         _running: Internal flag for controlling the recording loop
         _cleanup_done: Internal flag for preventing double cleanup
+        timeout: Optional timeout in seconds
     """
 
     def __init__(
-        self, redis_url: str = "redis://localhost:6379", symbol: str = "btcusdt"
+        self,
+        redis_url: str = "redis://localhost:6379",
+        symbol: str = "btcusdt",
+        timeout: Optional[int] = None,
+        output_path: str = "data/raw",
     ) -> None:
         """Initialize recorder
 
         Args:
             redis_url: Redis connection URL
             symbol: Trading pair symbol to record
+            timeout: Optional timeout in seconds
+            output_path: Path to write Parquet files
         """
         self.redis_client = redis.from_url(redis_url)
         self.symbol = symbol.lower()
         self.ws_client = BinanceWebSocket(symbol=self.symbol)
         self.stream_key = f"stream:lob:{self.symbol}"
-        self.parquet_writer = ParquetWriter(symbol=self.symbol)
+        self.parquet_writer = ParquetWriter(symbol=self.symbol, base_path=output_path)
         self._running = False
         self._cleanup_done = False
+        self.timeout = timeout
+        self._start_time = None
 
     async def start(self) -> None:
         """Start recording messages from WebSocket to Redis and Parquet
@@ -70,7 +80,7 @@ class MessageRecorder:
         This method:
         1. Connects to the WebSocket
         2. Subscribes to the depth stream
-        3. Processes messages until stopped
+        3. Processes messages until stopped or timeout
         4. Handles cleanup on error
 
         Raises:
@@ -82,10 +92,16 @@ class MessageRecorder:
             await self.ws_client.subscribe()
 
             self._running = True
+            self._start_time = time.time()
             logger.info(f"Started recording {self.symbol} depth updates")
 
-            # record messages until stopped
+            # record messages until stopped or timeout
             while self._running and self.ws_client.is_connected():
+                # Check timeout
+                if self.timeout and time.time() - self._start_time > self.timeout:
+                    logger.info(f"Timeout of {self.timeout} seconds reached")
+                    break
+
                 try:
                     message = await self.ws_client.receive()
 
@@ -180,7 +196,19 @@ class MessageRecorder:
 
 async def main() -> None:
     """Main function for testing the recorder"""
-    recorder = MessageRecorder()
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Record market data")
+    parser.add_argument("--timeout", type=int, help="Timeout in seconds")
+    parser.add_argument(
+        "--output-path",
+        type=str,
+        default="data/raw",
+        help="Path to write Parquet files",
+    )
+    args = parser.parse_args()
+
+    recorder = MessageRecorder(timeout=args.timeout, output_path=args.output_path)
     try:
         await recorder.start()
     except KeyboardInterrupt:

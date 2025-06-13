@@ -18,6 +18,7 @@ from pyarrow import Table, schema
 
 from backtest.simulator import Simulator
 from lob.order_book import OrderBook
+from strategy.naive_maker import quote_prices
 
 
 @pytest.fixture
@@ -82,22 +83,31 @@ def sample_parquet_file(test_data_dir, sample_messages):
 
 def test_simulator_initialization(test_data_dir):
     """test simulator initialization"""
-    simulator = Simulator(data_path=str(test_data_dir))
+    simulator = Simulator(
+        symbol="btcusdt", data_path=str(test_data_dir), strategy=quote_prices
+    )
     assert simulator.symbol == "btcusdt"
     assert simulator.data_path == test_data_dir
-    assert isinstance(simulator.order_book, OrderBook)
+    assert simulator.strategy == quote_prices
 
 
 def test_simulator_custom_order_book(test_data_dir):
     """test simulator with custom order book"""
     order_book = OrderBook()
-    simulator = Simulator(data_path=str(test_data_dir), order_book=order_book)
-    assert simulator.order_book is order_book
+    simulator = Simulator(
+        symbol="btcusdt", data_path=str(test_data_dir), strategy=quote_prices
+    )
+    simulator.order_book = order_book
+    assert simulator.order_book == order_book
 
 
 def test_replay_date(sample_parquet_file):
     """test replaying messages for a single date"""
-    simulator = Simulator(data_path=str(sample_parquet_file.parent))
+    simulator = Simulator(
+        symbol="btcusdt",
+        data_path=str(sample_parquet_file.parent),
+        strategy=quote_prices,
+    )
     date = datetime.date(2024, 1, 1)
     simulator.replay_date(date)
 
@@ -111,7 +121,9 @@ def test_replay_date(sample_parquet_file):
 
 def test_replay_date_range(test_data_dir, sample_parquet_file):
     """test replaying messages for a date range"""
-    simulator = Simulator(data_path=str(test_data_dir))
+    simulator = Simulator(
+        symbol="btcusdt", data_path=str(test_data_dir), strategy=quote_prices
+    )
     start_date = datetime.date(2024, 1, 1)
     end_date = datetime.date(2024, 1, 1)
     simulator.replay_date_range(start_date, end_date)
@@ -126,7 +138,9 @@ def test_replay_date_range(test_data_dir, sample_parquet_file):
 
 def test_replay_missing_file(test_data_dir):
     """test handling of missing parquet files"""
-    simulator = Simulator(data_path=str(test_data_dir))
+    simulator = Simulator(
+        symbol="btcusdt", data_path=str(test_data_dir), strategy=quote_prices
+    )
     date = datetime.date(2024, 1, 1)
 
     # should not raise exception
@@ -140,8 +154,16 @@ def test_replay_missing_file(test_data_dir):
 
 def test_deterministic_state(sample_parquet_file):
     """test that replay produces deterministic order book state"""
-    simulator1 = Simulator(data_path=str(sample_parquet_file.parent))
-    simulator2 = Simulator(data_path=str(sample_parquet_file.parent))
+    simulator1 = Simulator(
+        symbol="btcusdt",
+        data_path=str(sample_parquet_file.parent),
+        strategy=quote_prices,
+    )
+    simulator2 = Simulator(
+        symbol="btcusdt",
+        data_path=str(sample_parquet_file.parent),
+        strategy=quote_prices,
+    )
 
     date = datetime.date(2024, 1, 1)
     simulator1.replay_date(date)
@@ -190,6 +212,7 @@ def test_naive_maker_integration(tmp_path):
     sim = Simulator(
         symbol="btcusdt",
         data_path=str(data_dir),
+        strategy=quote_prices,
         spread=Decimal("1.0"),  # spread matches book spread
     )
 
@@ -202,17 +225,25 @@ def test_naive_maker_integration(tmp_path):
 
     # verify alternating buy/sell and correct prices
     expected = [
-        ("sell", Decimal("10000.0")),
-        ("buy", Decimal("10001.0")),
-        ("sell", Decimal("10001.0")),
-        ("buy", Decimal("10002.0")),
-        ("sell", Decimal("10002.0")),
-        ("buy", Decimal("10003.0")),
+        (
+            "buy",
+            Decimal("10000.3"),
+            Decimal("0.001"),  # base size
+        ),  # mid_price - half_spread
+        (
+            "sell",
+            Decimal("10000.7"),
+            Decimal("0.001"),  # base size
+        ),  # mid_price + half_spread
+        ("buy", Decimal("10001.3"), Decimal("0.001")),
+        ("sell", Decimal("10001.7"), Decimal("0.001")),
+        ("buy", Decimal("10002.3"), Decimal("0.001")),
+        ("sell", Decimal("10002.7"), Decimal("0.001")),
     ]
-    for i, (side, price) in enumerate(expected):
+    for i, (side, price, size) in enumerate(expected):
         assert fills_df.iloc[i]["side"] == side
         assert fills_df.iloc[i]["price"] == price
-        assert fills_df.iloc[i]["size"] == Decimal("0.001")
+        assert fills_df.iloc[i]["size"] == size
 
     # verify P&L summary
     pnl_summary = sim.get_pnl_summary()
@@ -253,6 +284,7 @@ def test_backtest_produces_pnl_csv(tmp_path):
     sim = Simulator(
         symbol="btcusdt",
         data_path=str(data_dir),
+        strategy=quote_prices,
         spread=Decimal("1.0"),  # spread matches book spread
     )
 
