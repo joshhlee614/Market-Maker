@@ -1,10 +1,9 @@
 .PHONY: test lint clean backtest live install
 
 install:
-	pip install -r requirements.txt
+	pip install -e ".[dev]"
 
 test:
-	pip install -e .
 	PYTHONPATH=src pytest tests/
 
 lint:
