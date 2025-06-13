@@ -3,14 +3,21 @@ integration tests for fill probability model with backtest simulator
 """
 
 import datetime
+import os
 from decimal import Decimal
 from pathlib import Path
+
+import pytest
 
 from backtest.simulator import Simulator
 from models.fill_prob import FillProbabilityModel
 from strategy.naive_maker import quote_prices
 
 
+@pytest.mark.skipif(
+    os.environ.get("CI") == "true",
+    reason="Test requires large data files that are not available in CI",
+)
 def test_fill_prob_with_backtest():
     """test fill probability model with backtest data"""
     # create simulator with spread matching the book to generate fills
@@ -88,6 +95,10 @@ def test_fill_prob_with_backtest():
     model_path.unlink(missing_ok=True)
 
 
+@pytest.mark.skipif(
+    os.environ.get("CI") == "true",
+    reason="Test requires large data files that are not available in CI",
+)
 def test_fill_prob_feature_importance():
     """test that model learns meaningful feature relationships"""
     # create simulator with spread matching the book

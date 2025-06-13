@@ -9,8 +9,11 @@ this test verifies that:
 
 import datetime
 import logging
+import os
 from decimal import Decimal
 from pathlib import Path
+
+import pytest
 
 from backtest.simulator import Simulator
 from models.fill_prob import FillProbabilityModel
@@ -20,6 +23,10 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
+@pytest.mark.skipif(
+    os.environ.get("CI") == "true",
+    reason="Test requires large data files that are not available in CI",
+)
 def test_fill_prob_2hour():
     """test fill probability model on 2-hour sample data"""
     # create simulator with spread matching the book
