@@ -1,4 +1,4 @@
-# Python
+# Python cache files
 __pycache__/
 *.py[cod]
 *$py.class
@@ -20,19 +20,55 @@ wheels/
 .installed.cfg
 *.egg
 
-# Virtual Environment
+# Virtual environments
 venv/
-env/
+venv3.11/
+venv3.12/
+venv311/
+venv312/
 ENV/
+env/
+.env/
 
-# IDE
+# IDE files
 .idea/
 .vscode/
 *.swp
 *.swo
+.DS_Store
 
-# Jupyter Notebook
-.ipynb_checkpoints
+# Test coverage
+.coverage
+htmlcov/
+.pytest_cache/
+.mypy_cache/
+
+# Logs
+*.log
+logs/
+
+# Local development settings
+.env
+.env.local
+.env.*.local
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
 
 # Project specific
 data/raw/*
@@ -46,9 +82,6 @@ data/models/*
 .env
 *.env
 
-# Logs
-*.log
-
 # Redis
 dump.rdb
 
@@ -56,6 +89,5 @@ dump.rdb
 *.parquet
 
 # System
-.DS_Store
 Thumbs.db architecture.md
 tasks.md

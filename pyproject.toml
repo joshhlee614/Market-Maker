@@ -7,7 +7,7 @@ name = "market_maker"
 version = "0.1.0"
 description = "A high-frequency market making system for cryptocurrency markets"
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.11,<3.12"
 license = {text = "MIT"}
 authors = [
     {name = "Josh Lee", email = "joshhlee614@gmail.com"},
@@ -41,7 +41,7 @@ performance = [
 
 [tool.black]
 line-length = 88
-target-version = ["py39", "py310", "py311"]
+target-version = ["py311"]
 include = '\.pyi?$'
 
 [tool.isort]

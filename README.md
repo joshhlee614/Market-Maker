@@ -12,6 +12,12 @@ A high-frequency market making system for cryptocurrency markets, focusing on Bi
 - Live trading engine with paper trading support
 - Comprehensive backtesting framework
 
+## Requirements
+
+- Python 3.11
+- Redis (for real-time state management)
+- PostgreSQL (for historical data storage)
+
 ## Project Structure
 
 ```
@@ -38,13 +44,17 @@ mm_project/
 
 1. Create and activate virtual environment:
 ```bash
-python -m venv venv
+python3.11 -m venv venv
 source venv/bin/activate  # On Windows: venv\Scripts\activate
 ```
 
 2. Install dependencies:
 ```bash
-pip install -r requirements.txt
+# Install core dependencies
+pip install -e .
+
+# Install development dependencies
+pip install -e ".[dev]"
 ```
 
 3. Configure environment:
