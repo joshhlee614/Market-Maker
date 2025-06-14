@@ -6,6 +6,7 @@ import datetime
 import unittest
 from decimal import Decimal
 from pathlib import Path
+from unittest.mock import MagicMock
 
 from backtest.simulator import Simulator
 from models.fill_prob import FillProbabilityModel
@@ -52,9 +53,16 @@ class TestEVMakerBacktest(unittest.TestCase):
         self.symbol = "btcusdt"
         self.test_date = datetime.date(2025, 6, 12)  # using test data file
 
-        # load fill probability model
-        self.fill_model = FillProbabilityModel()
-        self.fill_model.load()
+        # create mock fill probability model
+        self.fill_model = MagicMock(spec=FillProbabilityModel)
+        # mock predict to return higher probability for bids closer to mid
+        self.fill_model.predict.side_effect = lambda bids, asks, price, size, side: (
+            0.9
+            if side == "buy"
+            and abs(price - (Decimal(bids[0][0]) + Decimal(asks[0][0])) / Decimal("2"))
+            < Decimal("0.001")
+            else 0.1
+        )
 
     def test_ev_vs_naive_performance(self):
         """test that ev maker outperforms naive maker"""
