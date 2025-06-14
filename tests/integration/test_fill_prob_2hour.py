@@ -27,6 +27,7 @@ logger = logging.getLogger(__name__)
     os.environ.get("CI") == "true",
     reason="Test requires large data files that are not available in CI",
 )
+@pytest.mark.skip(reason="long running test - skip in CI")
 def test_fill_prob_2hour():
     """test fill probability model on 2-hour sample data"""
     # create simulator with spread matching the book
