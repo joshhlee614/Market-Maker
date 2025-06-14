@@ -303,11 +303,7 @@ class Simulator:
         return pd.DataFrame([vars(fill) for fill in self.fills])
 
     def get_pnl_summary(self) -> Dict[str, float]:
-        """get P&L summary statistics
-
-        Returns:
-            dict with P&L metrics
-        """
+        # get pnl summary statistics
         fills_df = self.get_fills_df()
         if fills_df.empty:
             return {
@@ -315,11 +311,32 @@ class Simulator:
                 "num_fills": 0,
                 "avg_fill_size": 0.0,
                 "final_position": 0.0,
+                "sharpe_ratio": 0.0,
+                "max_drawdown": 0.0,
             }
+
+        # compute running pnl series as float
+        pnl_series = fills_df.apply(
+            lambda row: float(row["size"])
+            * float(row["price"])
+            * (1 if row["side"] == "sell" else -1),
+            axis=1,
+        ).cumsum()
+        returns = pnl_series.diff().fillna(0)
+        if returns.std() > 0:
+            sharpe = returns.mean() / returns.std() * (252**0.5)
+        else:
+            sharpe = 0.0
+        # compute max drawdown
+        roll_max = pnl_series.cummax()
+        drawdown = (pnl_series - roll_max) / roll_max
+        max_dd = drawdown.min() if not drawdown.empty else 0.0
 
         return {
             "total_pnl": float(self.pnl),
             "num_fills": len(self.fills),
             "avg_fill_size": float(fills_df["size"].mean()),
             "final_position": float(self.position),
+            "sharpe_ratio": float(sharpe),
+            "max_drawdown": float(max_dd),
         }
