@@ -4,10 +4,11 @@ integration test for ev maker backtest performance
 
 import datetime
 import unittest
-import pytest
 from decimal import Decimal
 from pathlib import Path
 from unittest.mock import MagicMock
+
+import pytest
 
 from backtest.simulator import Simulator
 from models.fill_prob import FillProbabilityModel
