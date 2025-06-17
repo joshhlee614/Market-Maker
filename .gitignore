@@ -1,4 +1,4 @@
-# Python cache files
+# Python
 __pycache__/
 *.py[cod]
 *$py.class
@@ -20,74 +20,44 @@ wheels/
 .installed.cfg
 *.egg
 
-# Virtual environments
-venv/
-venv3.11/
-venv3.12/
-venv311/
-venv312/
-ENV/
-env/
-.env/
-
-# IDE files
+# IDE
 .idea/
 .vscode/
 *.swp
 *.swo
-.DS_Store
 
-# Test coverage
-.coverage
-htmlcov/
-.pytest_cache/
-.mypy_cache/
+# Environment
+.env
+.venv
+env/
+venv/
+ENV/
+
+# Data
+data/raw/
+data/processed/
+data/models/
+*.parquet
+*.csv
+backtest_result.csv
+backtest_results.csv
+
+# Task files
+task*.md
 
 # Logs
 *.log
-logs/
 
-# Local development settings
-.env
-.env.local
-.env.*.local
+# Debug files
+test_*_debug.py
+test_task_*.py
+test_*_data.py
 
-# Distribution / packaging
-.Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
+# System files
+.DS_Store
+.pytest_cache/
+.mypy_cache/
+node_modules/
 
-# Project specific
-data/raw/*
-data/processed/*
-data/models/*
-!data/raw/.gitkeep
-!data/processed/.gitkeep
-!data/models/.gitkeep
-
-# Environment variables
-.env
-*.env
-
-# Redis
-dump.rdb
-
-# Parquet files
-*.parquet
-
-# System
-Thumbs.db architecture.md
-tasks.md
+# Test data
+test_data/

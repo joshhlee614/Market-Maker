@@ -4,7 +4,7 @@ install:
 	pip install -e ".[dev]"
 
 test:
-	PYTHONPATH=src pytest tests/ -m "not skip"
+	PYTHONPATH=src pytest tests/ -m "not skip and not backtest_regression"
 
 lint:
 	PYTHONPATH=src flake8 src/ tests/

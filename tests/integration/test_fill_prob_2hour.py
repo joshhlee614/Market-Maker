@@ -17,7 +17,7 @@ import pytest
 
 from backtest.simulator import Simulator
 from models.fill_prob import FillProbabilityModel
-from strategy.naive_maker import quote_prices
+from strategy.naive_maker import NaiveMaker, NaiveMakerConfig
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -31,11 +31,12 @@ logger = logging.getLogger(__name__)
 def test_fill_prob_2hour():
     """test fill probability model on 2-hour sample data"""
     # create simulator with spread matching the book
+    config = NaiveMakerConfig(spread=Decimal("0.001"))  # 0.1% spread
+    naive_maker = NaiveMaker(config)
     simulator = Simulator(
         symbol="btcusdt",
         data_path="data/raw/2hour_sample",
-        strategy=quote_prices,
-        spread=Decimal("0.001"),  # 0.1% spread
+        strategy=naive_maker.quote_prices,
     )
 
     # replay the 2-hour sample

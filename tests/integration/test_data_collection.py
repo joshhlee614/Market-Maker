@@ -15,7 +15,7 @@ import pytest
 
 from backtest.simulator import Simulator
 from data_feed.parquet_writer import ParquetWriter
-from strategy.naive_maker import quote_prices
+from strategy.naive_maker import NaiveMaker, NaiveMakerConfig
 
 
 @pytest.fixture
@@ -62,11 +62,14 @@ def test_data_collection_pipeline(test_data_dir, sample_depth_update):
         assert df.iloc[0]["event_type"] == "depthUpdate"
 
     # 4. Test simulator can use the data
+    config = NaiveMakerConfig(
+        spread=Decimal("0.0005")
+    )  # Use tight spread to generate more fills
+    naive_maker = NaiveMaker(config)
     simulator = Simulator(
         symbol="btcusdt",
         data_path=str(test_data_dir),
-        strategy=quote_prices,
-        spread=Decimal("0.0005"),  # Use tight spread to generate more fills
+        strategy=naive_maker.quote_prices,
     )
 
     # Replay the data

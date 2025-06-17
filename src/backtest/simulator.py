@@ -106,6 +106,7 @@ class Simulator:
         self.fills: List[Fill] = []
         self.position: Decimal = Decimal("0")
         self.pnl: Decimal = Decimal("0")
+        self.volatility: Decimal = Decimal("0.01")  # 1% default volatility
 
     def _get_file_path(self, date: datetime.date) -> Path:
         """get parquet file path for date
@@ -155,17 +156,28 @@ class Simulator:
             "a": _convert_string_to_list(message.get("asks", [])),
         }
         depth_update = DepthUpdate(**mapped)
-        # For test: overwrite the order book's bids and asks with the new snapshot
+
+        # Store our quotes before clearing
+        our_quotes = []
+        for price, orders in self.order_book.bids.items():
+            for order in orders:
+                if order.order_id.startswith("strat_"):
+                    our_quotes.append(order)
+        for price, orders in self.order_book.asks.items():
+            for order in orders:
+                if order.order_id.startswith("strat_"):
+                    our_quotes.append(order)
+
+        # Clear and update the order book
         self.order_book.bids.clear()
         self.order_book.asks.clear()
-        from decimal import Decimal
 
         for price, qty in depth_update.b:
             price_dec = Decimal(price)
             qty_dec = Decimal(qty)
             self.order_book.bids[price_dec] = [
                 Order(
-                    order_id=f"bid_{price}_{qty}",
+                    order_id=f"mkt_{price}_{qty}",  # prefix with mkt_ to distinguish
                     side="buy",
                     price=price_dec,
                     size=qty_dec,
@@ -177,7 +189,7 @@ class Simulator:
             qty_dec = Decimal(qty)
             self.order_book.asks[price_dec] = [
                 Order(
-                    order_id=f"ask_{price}_{qty}",
+                    order_id=f"mkt_{price}_{qty}",  # prefix with mkt_ to distinguish
                     side="sell",
                     price=price_dec,
                     size=qty_dec,
@@ -185,7 +197,18 @@ class Simulator:
                 )
             ]
 
-        # Run naive maker strategy
+        # Restore our quotes (they might get filled in _run_strategy)
+        for order in our_quotes:
+            if order.side == "buy":
+                if order.price not in self.order_book.bids:
+                    self.order_book.bids[order.price] = []
+                self.order_book.bids[order.price].append(order)
+            else:
+                if order.price not in self.order_book.asks:
+                    self.order_book.asks[order.price] = []
+                self.order_book.asks[order.price].append(order)
+
+        # Run strategy
         self._run_strategy(depth_update.E)
 
     def _run_strategy(self, timestamp: int) -> None:
@@ -196,58 +219,119 @@ class Simulator:
         if not best_bid or not best_ask:
             return
 
-        # Calculate mid price
-        mid_price = (best_bid + best_ask) / Decimal("2")
+        # Calculate mid price (best_bid and best_ask are already Decimal prices)
+        mid_price = (best_bid + best_ask) / 2
+
+        # Get current book state for fill probability
+        bids = [[str(p), str(o[0].size)] for p, o in self.order_book.bids.items()]
+        asks = [[str(p), str(o[0].size)] for p, o in self.order_book.asks.items()]
 
         # Get strategy quotes
-        bid_price, ask_price, bid_size, ask_size = self.strategy(
+        quotes = self.strategy(
             mid_price=mid_price,
+            volatility=self.volatility,
+            bid_probability=Decimal("0.5"),  # neutral fill probability
+            ask_probability=Decimal("0.5"),  # neutral fill probability
+            inventory=self.position,
             best_bid=best_bid,
             best_ask=best_ask,
-            spread=self.spread,
+            bids=bids,
+            asks=asks,
         )
 
-        # Simulate fills
-        if bid_price >= best_bid:
-            self._simulate_fill(
-                timestamp=timestamp, side="buy", price=bid_price, size=bid_size
-            )
+        # Unpack quotes
+        bid_quote, ask_quote = quotes
+        bid_price, bid_size = bid_quote.price, bid_quote.size
+        ask_price, ask_size = ask_quote.price, ask_quote.size
 
-        if ask_price <= best_ask:
-            self._simulate_fill(
-                timestamp=timestamp, side="sell", price=ask_price, size=ask_size
-            )
+        # Place strategy orders
+        bid_order = Order(
+            order_id=f"strat_bid_{timestamp}",
+            side="buy",
+            price=bid_price,
+            size=bid_size,
+            timestamp=timestamp,
+        )
+        ask_order = Order(
+            order_id=f"strat_ask_{timestamp}",
+            side="sell",
+            price=ask_price,
+            size=ask_size,
+            timestamp=timestamp,
+        )
+
+        # Check for fills against market orders
+        for price, orders in self.order_book.asks.items():
+            for order in orders:
+                if not order.order_id.startswith("mkt_"):
+                    continue
+                if bid_price >= order.price:  # our bid crosses their ask
+                    self._simulate_fill(
+                        timestamp=timestamp,
+                        side="buy",
+                        price=order.price,
+                        size=min(order.size, bid_order.size),
+                    )
+                    return  # only one fill per update
+
+        for price, orders in self.order_book.bids.items():
+            for order in orders:
+                if not order.order_id.startswith("mkt_"):
+                    continue
+                if ask_price <= order.price:  # our ask crosses their bid
+                    self._simulate_fill(
+                        timestamp=timestamp,
+                        side="sell",
+                        price=order.price,
+                        size=min(order.size, ask_order.size),
+                    )
+                    return  # only one fill per update
+
+        # Add our orders to the book if not filled
+        if bid_price not in self.order_book.bids:
+            self.order_book.bids[bid_price] = []
+        self.order_book.bids[bid_price].append(bid_order)
+
+        if ask_price not in self.order_book.asks:
+            self.order_book.asks[ask_price] = []
+        self.order_book.asks[ask_price].append(ask_order)
 
     def _simulate_fill(
         self, timestamp: int, side: str, price: Decimal, size: Decimal
     ) -> None:
-        """Simulate a fill and update position/P&L
+        """simulate fill and update position/pnl
 
         Args:
             timestamp: fill timestamp
-            side: fill side ("buy" or "sell")
+            side: buy or sell
             price: fill price
             size: fill size
         """
-        self.fills.append(
-            Fill(
-                timestamp=timestamp,
-                side=side,
-                price=price,
-                size=size,
-                order_id=f"strategy_{side}_{timestamp}",
-            )
+        # Create fill record
+        fill = Fill(
+            timestamp=timestamp,
+            side=side,
+            price=price,
+            size=size,
+            order_id=f"{side}_{timestamp}",
         )
+        self.fills.append(fill)
 
+        # Update position
         if side == "buy":
             self.position += size
-            self.pnl -= size * price
-        else:  # sell
+        else:
             self.position -= size
-            self.pnl += size * price
+
+        # Update P&L (convert to Decimal for consistent arithmetic)
+        fill_value = price * size
+        if side == "sell":
+            self.pnl = self.pnl + fill_value
+        else:
+            self.pnl = self.pnl - fill_value
 
     def replay_date(self, date: datetime.date) -> None:
-        """replay all messages for a specific date
+        """replay messages for a single date
 
         Args:
             date: date to replay
@@ -257,14 +341,10 @@ class Simulator:
         """
         file_path = self._get_file_path(date)
         table = self._read_parquet_file(file_path)
+        df = table.to_pandas()
 
-        # sort by event time to ensure correct order
-        table = table.sort_by([("event_time", "ascending")])
-
-        # process each message
-        for batch in table.to_batches():
-            for row in batch.to_pylist():
-                self._process_message(row)
+        for _, row in df.iterrows():
+            self._process_message(row)
 
     def replay_date_range(
         self, start_date: datetime.date, end_date: datetime.date
@@ -303,40 +383,24 @@ class Simulator:
         return pd.DataFrame([vars(fill) for fill in self.fills])
 
     def get_pnl_summary(self) -> Dict[str, float]:
-        # get pnl summary statistics
+        """get pnl summary statistics
+
+        Returns:
+            dictionary with summary statistics
+        """
         fills_df = self.get_fills_df()
-        if fills_df.empty:
+        if len(fills_df) == 0:
             return {
-                "total_pnl": 0.0,
                 "num_fills": 0,
+                "total_pnl": 0.0,
                 "avg_fill_size": 0.0,
-                "final_position": 0.0,
-                "sharpe_ratio": 0.0,
-                "max_drawdown": 0.0,
+                "final_position": float(self.position),
             }
 
-        # compute running pnl series as float
-        pnl_series = fills_df.apply(
-            lambda row: float(row["size"])
-            * float(row["price"])
-            * (1 if row["side"] == "sell" else -1),
-            axis=1,
-        ).cumsum()
-        returns = pnl_series.diff().fillna(0)
-        if returns.std() > 0:
-            sharpe = returns.mean() / returns.std() * (252**0.5)
-        else:
-            sharpe = 0.0
-        # compute max drawdown
-        roll_max = pnl_series.cummax()
-        drawdown = (pnl_series - roll_max) / roll_max
-        max_dd = drawdown.min() if not drawdown.empty else 0.0
-
+        avg_fill_size = float(fills_df["size"].mean())
         return {
+            "num_fills": len(fills_df),
             "total_pnl": float(self.pnl),
-            "num_fills": len(self.fills),
-            "avg_fill_size": float(fills_df["size"].mean()),
+            "avg_fill_size": avg_fill_size,
             "final_position": float(self.position),
-            "sharpe_ratio": float(sharpe),
-            "max_drawdown": float(max_dd),
         }
