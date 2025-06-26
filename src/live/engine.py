@@ -8,15 +8,13 @@ import asyncio
 import json
 import logging
 from decimal import Decimal
-from typing import Dict, List, Optional
+from typing import Dict
 
 import redis.asyncio as redis
 
 from data_feed.schemas import DepthUpdate
-from features.imbalance import get_imbalance_features
-from features.micro_price import calculate_microprice
 from features.volatility import VolatilityCalculator
-from models.size_calculator import SizeCalculator, SizeConfig
+from models.size_calculator import SizeConfig
 from strategy.ev_maker import EVConfig, EVMaker
 
 logging.basicConfig(
@@ -112,12 +110,6 @@ class LiveEngine:
 
             # update volatility
             volatility = self.volatility_calc.update(mid_price)
-
-            # calculate features
-            imbalance_features = get_imbalance_features(bids, asks)
-            microprice_tuples = [
-                (Decimal(price), Decimal(qty)) for price, qty in bids[:1]
-            ] + [(Decimal(price), Decimal(qty)) for price, qty in asks[:1]]
 
             # generate quotes using ev maker
             bid_quote, ask_quote = self.ev_maker.quote_prices(
