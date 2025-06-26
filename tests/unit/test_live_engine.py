@@ -142,3 +142,144 @@ class TestLiveEngine:
 
             # verify redis connection was closed
             mock_client.aclose.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_engine_initialization_redis_state(self):
+        """test engine initializes redis state correctly"""
+        engine = LiveEngine(symbol="btcusdt")
+
+        # Mock the redis client
+        mock_redis = AsyncMock()
+        mock_redis.exists.side_effect = [False, False]  # position and pnl don't exist
+        engine.redis_client = mock_redis
+
+        await engine._initialize_redis_state()
+
+        # verify redis keys were initialized
+        mock_redis.set.assert_any_call("position:btcusdt", "0")
+        mock_redis.set.assert_any_call("pnl:btcusdt", "0")
+
+    @pytest.mark.asyncio
+    async def test_fill_processing(self):
+        """test fill processing updates position and pnl"""
+        engine = LiveEngine(symbol="btcusdt")
+
+        # Mock the redis client
+        mock_redis = AsyncMock()
+        mock_redis.get.return_value = b"10.0"
+        engine.redis_client = mock_redis
+
+        # Mock the trade data
+        trade = {
+            "id": "123",
+            "isBuyer": True,
+            "price": "50000.00",
+            "qty": "0.001",
+            "commission": "0.05",
+            "commissionAsset": "USDT",
+        }
+
+        await engine._process_fill(trade)
+
+        # verify inventory was updated
+        assert engine.current_inventory == Decimal("0.001")
+
+        # verify redis was updated
+        mock_redis.set.assert_any_call("position:btcusdt", "0.001")
+        # pnl should be updated (10.0 - 0.05 commission)
+        mock_redis.set.assert_any_call("pnl:btcusdt", "9.95")
+
+    @pytest.mark.asyncio
+    async def test_fill_checking_processes_new_trades(self):
+        """test fill checking processes new trades only"""
+        engine = LiveEngine(symbol="btcusdt")
+
+        # Mock the gateway
+        mock_gateway = AsyncMock()
+        engine.gateway = mock_gateway
+        engine.last_trade_id = 100
+
+        # Mock the trades
+        trades = [
+            {
+                "id": "100",
+                "isBuyer": True,
+                "price": "50000",
+                "qty": "0.001",
+                "commission": "0.05",
+            },
+            {
+                "id": "101",
+                "isBuyer": False,
+                "price": "50100",
+                "qty": "0.001",
+                "commission": "0.05",
+            },
+        ]
+        mock_gateway.get_account_trades.return_value = trades
+
+        with patch.object(engine, "_process_fill") as mock_process:
+            await engine._check_for_fills()
+
+        # should only process the new trade (id 101)
+        mock_process.assert_called_once_with(trades[1])
+        assert engine.last_trade_id == 101
+
+    @pytest.mark.asyncio
+    async def test_fill_listener_integration(self):
+        """test that fill checking is integrated into main loop"""
+        engine = LiveEngine(symbol="btcusdt")
+
+        # Mock the gateway
+        mock_gateway = AsyncMock()
+        engine.gateway = mock_gateway
+
+        # Mock the market data message
+        message_data = {
+            "e": "depthUpdate",
+            "E": 1234567890,
+            "s": "BTCUSDT",
+            "U": 1,
+            "u": 2,
+            "b": [["50000.00", "1.0"]],
+            "a": [["50100.00", "1.0"]],
+        }
+
+        fields = {b"data": json.dumps(message_data).encode()}
+
+        # Mock successful order placement
+        mock_gateway.post_order.return_value = {"orderId": "12345"}
+
+        with patch.object(engine, "_check_for_fills") as mock_check_fills:
+            await engine._process_message(fields)
+
+        # verify fill checking was called
+        mock_check_fills.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_redis_position_and_pnl_keys_update_on_fill(self):
+        """test redis position and pnl keys update on fill - task 7.3 requirement"""
+        engine = LiveEngine(symbol="btcusdt")
+
+        # Mock the redis client
+        mock_redis = AsyncMock()
+        mock_redis.get.return_value = b"5.0"  # existing pnl
+        engine.redis_client = mock_redis
+
+        # Simulate a buy fill
+        trade = {
+            "id": "123",
+            "isBuyer": True,
+            "price": "50000.00",
+            "qty": "0.002",
+            "commission": "0.10",
+            "commissionAsset": "USDT",
+        }
+
+        await engine._process_fill(trade)
+
+        # verify position key was updated
+        mock_redis.set.assert_any_call("position:btcusdt", "0.002")
+
+        # verify pnl key was updated (5.0 - 0.10 commission)
+        mock_redis.set.assert_any_call("pnl:btcusdt", "4.90")

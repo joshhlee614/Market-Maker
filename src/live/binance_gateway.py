@@ -221,3 +221,67 @@ class BinanceGateway:
         except Exception as e:
             logger.error(f"Failed to get open orders: {e}")
             raise
+
+    async def get_order_status(
+        self,
+        symbol: str,
+        order_id: Optional[int] = None,
+        orig_client_order_id: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Get order status
+
+        Args:
+            symbol: Trading symbol (e.g. "BTCUSDT")
+            order_id: Binance order ID
+            orig_client_order_id: Original client order ID
+
+        Returns:
+            Order status from Binance API
+        """
+        if not order_id and not orig_client_order_id:
+            raise ValueError("Either order_id or orig_client_order_id must be provided")
+
+        params = {"symbol": symbol.upper()}
+
+        if order_id:
+            params["orderId"] = order_id
+        if orig_client_order_id:
+            params["origClientOrderId"] = orig_client_order_id
+
+        try:
+            result = await self._request("GET", "/api/v3/order", params)
+            return result
+        except Exception as e:
+            logger.error(f"Failed to get order status: {e}")
+            raise
+
+    async def get_account_trades(
+        self,
+        symbol: str,
+        limit: int = 100,
+        from_id: Optional[int] = None,
+    ) -> list:
+        """Get account trade list
+
+        Args:
+            symbol: Trading symbol (e.g. "BTCUSDT")
+            limit: Number of trades to retrieve (max 1000)
+            from_id: TradeId to fetch from (optional)
+
+        Returns:
+            List of recent trades
+        """
+        params = {
+            "symbol": symbol.upper(),
+            "limit": limit,
+        }
+
+        if from_id:
+            params["fromId"] = from_id
+
+        try:
+            result = await self._request("GET", "/api/v3/myTrades", params)
+            return result
+        except Exception as e:
+            logger.error(f"Failed to get account trades: {e}")
+            raise

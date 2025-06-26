@@ -69,6 +69,11 @@ class LiveEngine:
         self.current_inventory = Decimal("0")
         self.running = False
 
+        # fill tracking
+        self.last_trade_id: Optional[int] = None
+        self.position_key = f"position:{self.symbol}"
+        self.pnl_key = f"pnl:{self.symbol}"
+
     async def start(self) -> None:
         """start the live engine loop"""
         logger.info(f"starting live engine for {self.symbol}")
@@ -82,6 +87,9 @@ class LiveEngine:
             logger.warning(
                 "no binance credentials provided, running in simulation mode"
             )
+
+        # initialize redis state
+        await self._initialize_redis_state()
 
         try:
             if self.gateway:
@@ -122,6 +130,30 @@ class LiveEngine:
 
         if self.redis_client:
             await self.redis_client.aclose()
+
+    async def _initialize_redis_state(self) -> None:
+        """initialize redis position and pnl if they don't exist"""
+        try:
+            # check if position exists, if not initialize to 0
+            position_exists = await self.redis_client.exists(self.position_key)
+            if not position_exists:
+                await self.redis_client.set(self.position_key, "0")
+                logger.info(f"initialized position key {self.position_key} to 0")
+
+            # check if pnl exists, if not initialize to 0
+            pnl_exists = await self.redis_client.exists(self.pnl_key)
+            if not pnl_exists:
+                await self.redis_client.set(self.pnl_key, "0")
+                logger.info(f"initialized pnl key {self.pnl_key} to 0")
+
+            # load current inventory from redis
+            position_str = await self.redis_client.get(self.position_key)
+            if position_str:
+                self.current_inventory = Decimal(position_str.decode())
+                logger.info(f"loaded current inventory: {self.current_inventory}")
+
+        except Exception as e:
+            logger.error(f"error initializing redis state: {e}")
 
     async def _process_message(self, fields: Dict) -> None:
         """process a single message from redis stream"""
@@ -168,6 +200,8 @@ class LiveEngine:
             # place orders if gateway is available
             if self.gateway:
                 await self._manage_orders(bid_quote, ask_quote)
+                # check for fills after managing orders
+                await self._check_for_fills()
 
         except Exception as e:
             logger.error(f"error processing message: {e}")
@@ -245,6 +279,100 @@ class LiveEngine:
 
         except Exception as e:
             logger.error(f"error canceling orders: {e}")
+
+    async def _check_for_fills(self) -> None:
+        """check for new fills and update position/pnl"""
+        if not self.gateway:
+            return
+
+        try:
+            symbol = self.symbol.upper()
+
+            # get recent trades
+            trades = await self.gateway.get_account_trades(
+                symbol=symbol,
+                limit=10,
+                from_id=self.last_trade_id,
+            )
+
+            if not trades:
+                return
+
+            # process new trades
+            for trade in trades:
+                trade_id = int(trade["id"])
+
+                # skip if we've already processed this trade
+                if self.last_trade_id and trade_id <= self.last_trade_id:
+                    continue
+
+                await self._process_fill(trade)
+                self.last_trade_id = trade_id
+
+        except Exception as e:
+            logger.error(f"error checking for fills: {e}")
+
+    async def _process_fill(self, trade: Dict) -> None:
+        """process a single fill and update position/pnl"""
+        try:
+            # extract trade details
+            side = trade["isBuyer"]  # true if we were the buyer
+            price = Decimal(trade["price"])
+            qty = Decimal(trade["qty"])
+            commission = Decimal(trade["commission"])
+
+            # calculate position change
+            if side:  # we bought
+                position_change = qty
+            else:  # we sold
+                position_change = -qty
+
+            # update current inventory
+            self.current_inventory += position_change
+
+            # calculate pnl impact (simplified - commission cost)
+            pnl_change = -commission  # commission is always a cost
+
+            # update redis
+            await self._update_redis_state(
+                position_change, pnl_change, price, qty, side
+            )
+
+            logger.info(
+                f"fill processed: side={'BUY' if side else 'SELL'} "
+                f"price={price} qty={qty} new_inventory={self.current_inventory}"
+            )
+
+        except Exception as e:
+            logger.error(f"error processing fill: {e}")
+
+    async def _update_redis_state(
+        self,
+        position_change: Decimal,
+        pnl_change: Decimal,
+        price: Decimal,
+        qty: Decimal,
+        is_buyer: bool,
+    ) -> None:
+        """update position and pnl in redis"""
+        try:
+            # update position
+            await self.redis_client.set(self.position_key, str(self.current_inventory))
+
+            # get current pnl and update
+            current_pnl_str = await self.redis_client.get(self.pnl_key)
+            current_pnl = (
+                Decimal(current_pnl_str.decode()) if current_pnl_str else Decimal("0")
+            )
+            new_pnl = current_pnl + pnl_change
+            await self.redis_client.set(self.pnl_key, str(new_pnl))
+
+            logger.info(
+                f"redis updated: position={self.current_inventory} pnl={new_pnl}"
+            )
+
+        except Exception as e:
+            logger.error(f"error updating redis state: {e}")
 
 
 async def main():

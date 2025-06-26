@@ -195,3 +195,94 @@ async def test_mainnet_url():
     """Test that mainnet URL is used when testnet=False"""
     gateway = BinanceGateway("key", "secret", testnet=False)
     assert gateway.base_url == "https://api.binance.com"
+
+
+@pytest.mark.asyncio
+async def test_get_account_trades():
+    """test getting account trades"""
+    gateway = BinanceGateway("key", "secret", testnet=True)
+
+    mock_response = [
+        {
+            "id": 123,
+            "symbol": "BTCUSDT",
+            "orderId": 12345,
+            "price": "50000.00",
+            "qty": "0.001",
+            "commission": "0.05",
+            "commissionAsset": "USDT",
+            "time": 1234567890,
+            "isBuyer": True,
+        }
+    ]
+
+    with patch.object(gateway, "_request", new_callable=AsyncMock) as mock_request:
+        mock_request.return_value = mock_response
+
+        result = await gateway.get_account_trades("BTCUSDT", limit=10)
+
+        assert result == mock_response
+        mock_request.assert_called_once_with(
+            "GET", "/api/v3/myTrades", {"symbol": "BTCUSDT", "limit": 10}
+        )
+
+
+@pytest.mark.asyncio
+async def test_get_account_trades_with_from_id():
+    """test getting account trades with from_id"""
+    gateway = BinanceGateway("key", "secret", testnet=True)
+
+    mock_response = [
+        {
+            "id": 124,
+            "symbol": "BTCUSDT",
+            "orderId": 12346,
+            "price": "50100.00",
+            "qty": "0.002",
+            "commission": "0.10",
+            "commissionAsset": "USDT",
+            "time": 1234567891,
+            "isBuyer": False,
+        }
+    ]
+
+    with patch.object(gateway, "_request", new_callable=AsyncMock) as mock_request:
+        mock_request.return_value = mock_response
+
+        result = await gateway.get_account_trades("BTCUSDT", limit=10, from_id=123)
+
+        assert result == mock_response
+        mock_request.assert_called_once_with(
+            "GET", "/api/v3/myTrades", {"symbol": "BTCUSDT", "limit": 10, "fromId": 123}
+        )
+
+
+@pytest.mark.asyncio
+async def test_get_order_status():
+    """test getting order status"""
+    gateway = BinanceGateway("key", "secret", testnet=True)
+
+    mock_response = {
+        "symbol": "BTCUSDT",
+        "orderId": 12345,
+        "status": "FILLED",
+        "executedQty": "0.001",
+        "fills": [
+            {
+                "price": "50000.00",
+                "qty": "0.001",
+                "commission": "0.05",
+                "commissionAsset": "USDT",
+            }
+        ],
+    }
+
+    with patch.object(gateway, "_request", new_callable=AsyncMock) as mock_request:
+        mock_request.return_value = mock_response
+
+        result = await gateway.get_order_status("BTCUSDT", order_id=12345)
+
+        assert result == mock_response
+        mock_request.assert_called_once_with(
+            "GET", "/api/v3/order", {"symbol": "BTCUSDT", "orderId": 12345}
+        )
