@@ -36,6 +36,22 @@ class TestLiveEngine:
         assert engine.stream_key == "stream:lob:btcusdt"
         assert engine.current_inventory == Decimal("0")
         assert not engine.running
+        assert engine.gateway is None
+        assert engine.current_bid_order_id is None
+        assert engine.current_ask_order_id is None
+
+        await engine.stop()
+
+    @pytest.mark.asyncio
+    async def test_engine_initialization_with_credentials(self):
+        """test that engine initializes with binance credentials"""
+        engine = LiveEngine(
+            symbol="btcusdt", api_key="test_key", api_secret="test_secret", testnet=True
+        )
+
+        assert engine.api_key == "test_key"
+        assert engine.api_secret == "test_secret"
+        assert engine.testnet is True
 
         await engine.stop()
 
@@ -61,6 +77,35 @@ class TestLiveEngine:
             assert "bid=" in output
             assert "ask=" in output
             assert "mid=" in output
+
+        await engine.stop()
+
+    @pytest.mark.asyncio
+    async def test_process_message_with_gateway(self, sample_message):
+        """test message processing with binance gateway"""
+        engine = LiveEngine(
+            symbol="btcusdt", api_key="test_key", api_secret="test_secret"
+        )
+
+        # Mock the gateway
+        mock_gateway = AsyncMock()
+        engine.gateway = mock_gateway
+
+        # prepare mock message fields
+        message_fields = {b"data": json.dumps(sample_message).encode()}
+
+        # Mock the order management
+        with patch.object(
+            engine, "_manage_orders", new_callable=AsyncMock
+        ) as mock_manage:
+            with patch("builtins.print") as mock_print:
+                await engine._process_message(message_fields)
+
+                # verify quote was printed
+                assert mock_print.call_count > 0
+
+                # verify order management was called
+                mock_manage.assert_called_once()
 
         await engine.stop()
 
