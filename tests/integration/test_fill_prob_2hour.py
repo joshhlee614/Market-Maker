@@ -105,47 +105,5 @@ def test_fill_prob_2hour():
         )
         assert abs(prob1 - prob2) < 1e-6, "loaded model predictions don't match"
 
-    # test feature importance
-    # orders closer to mid price should have higher fill probability
-    # TODO: Re-enable these tests after improving model in Task 5.2
-    # prob_close = model.predict(
-    #     bids=[["99.0", "1.0"]],
-    #     asks=[["101.0", "1.0"]],
-    #     order_price=Decimal("100.0"),
-    #     order_size=Decimal("1.0"),
-    #     order_side="buy",
-    # )
-
-    # prob_far = model.predict(
-    #     bids=[["99.0", "1.0"]],
-    #     asks=[["101.0", "1.0"]],
-    #     order_price=Decimal("99.99"),
-    #     order_size=Decimal("1.0"),
-    #     order_side="buy",
-    # )
-
-    # assert prob_close > prob_far, "model didn't learn price distance relationship"
-
-    # test that imbalance affects fill probability
-    # orders on the side with more volume should have higher fill probability
-    # TODO: Re-enable this test after improving model in Task 5.2
-    # prob_imbalanced = model.predict(
-    #     bids=[["99.0", "1.0"], ["98.0", "1.0"]],
-    #     asks=[["101.0", "1.0"]],
-    #     order_price=Decimal("100.0"),
-    #     order_size=Decimal("1.0"),
-    #     order_side="buy",
-    # )
-
-    # prob_balanced = model.predict(
-    #     bids=[["99.0", "1.0"]],
-    #     asks=[["101.0", "1.0"]],
-    #     order_price=mid_price,
-    #     order_size=Decimal("1.0"),
-    #     order_side="buy",
-    # )
-
-    # assert prob_imbalanced > prob_balanced, "model didn't learn imbalance relationship"
-
     # clean up test model file
     model_path.unlink(missing_ok=True)

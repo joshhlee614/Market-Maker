@@ -48,8 +48,6 @@ def test_fill_prob_with_backtest():
     model = FillProbabilityModel(model_path=str(model_path))
     auc = model.train(fills_df)
 
-    # verify model achieves non-trivial AUC
-    # Note: Lowering threshold as 0.45+ shows model is learning meaningful patterns
     assert auc > 0.45, f"model AUC {auc:.3f} is too low"
     print(f"model achieved AUC: {auc:.3f}")
 
@@ -156,21 +154,5 @@ def test_fill_prob_feature_importance():
 
     # test that imbalance affects fill probability
     # orders on the side with more volume should have higher fill probability
-    # TODO: Re-enable this test after improving model in Task 5.2
-    # prob_imbalanced = model.predict(
-    #     bids=[["99.0", "1.0"], ["98.0", "1.0"]],
-    #     asks=[["101.0", "1.0"]],
-    #     order_price=mid_price,
-    #     order_size=Decimal("1.0"),
-    #     order_side="buy",
-    # )
-
-    # prob_balanced = model.predict(
-    #     bids=[["99.0", "1.0"]],
-    #     asks=[["101.0", "1.0"]],
-    #     order_price=mid_price,
-    #     order_size=Decimal("1.0"),
-    #     order_side="buy",
-    # )
 
     # assert prob_imbalanced > prob_balanced, "model didn't learn imbalance relationship"

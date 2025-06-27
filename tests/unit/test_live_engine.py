@@ -33,7 +33,9 @@ class TestLiveEngine:
         engine = LiveEngine(symbol="btcusdt")
 
         assert engine.symbol == "btcusdt"
-        assert engine.stream_key == "stream:lob:btcusdt"
+        assert engine.stream_key == "depth_updates:btcusdt"
+        assert engine.position_key == "position:btcusdt"
+        assert engine.pnl_key == "pnl:btcusdt"
         assert engine.current_inventory == Decimal("0")
         assert not engine.running
         assert engine.gateway is None

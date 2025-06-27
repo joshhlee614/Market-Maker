@@ -24,6 +24,7 @@ dependencies = [
     "ccxt>=4.0.0",
     "scikit-learn>=1.2.0",
     "torch>=2.0.0",
+    "prometheus_client>=0.16.0",
 ]
 
 [project.optional-dependencies]

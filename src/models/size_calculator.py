@@ -1,6 +1,4 @@
-"""
-size calculator module for determining order sizes based on inventory
-"""
+"""size calculator module for determining order sizes based on inventory"""
 
 import math
 from dataclasses import dataclass
