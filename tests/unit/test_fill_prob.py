@@ -3,13 +3,14 @@ unit tests for fill probability model
 """
 
 from decimal import Decimal
+import random
 
 from models.fill_prob import FillFeatures, FillProbabilityModel
 
 
 def test_feature_extraction():
     """test feature extraction from order book state"""
-    # create sample order book state
+    # sample order book state
     bids = [
         ["100.0", "1.0"],
         ["99.0", "2.0"],
@@ -21,7 +22,7 @@ def test_feature_extraction():
         ["103.0", "3.0"],
     ]
 
-    # create model
+    # model
     model = FillProbabilityModel()
 
     # extract features for buy order
@@ -54,7 +55,7 @@ def test_model_training():
     """test model training and prediction"""
     import pandas as pd
 
-    # create sample training data
+    # sample training data
     data = []
     for i in range(100):
         mid_price = 100.0
@@ -71,7 +72,7 @@ def test_model_training():
 
     fills_df = pd.DataFrame(data)
 
-    # create and train model
+    # and train model
     model = FillProbabilityModel()
     auc = model.train(fills_df)
 
@@ -96,7 +97,7 @@ def test_model_persistence(tmp_path):
     """test model saving and loading"""
     import pandas as pd
 
-    # create sample training data
+    # sample training data
     data = []
     for i in range(100):
         mid_price = 100.0
@@ -113,20 +114,20 @@ def test_model_persistence(tmp_path):
 
     fills_df = pd.DataFrame(data)
 
-    # create and train model
+    # and train model
     model = FillProbabilityModel(model_path=str(tmp_path / "model.joblib"))
     model.train(fills_df)
 
     # save model
     model.save()
 
-    # create new model and load
-    loaded_model = FillProbabilityModel(model_path=str(tmp_path / "model.joblib"))
-    loaded_model.load()
+    # new model and load
+    model2 = FillProbabilityModel(model_path=str(tmp_path / "model.joblib"))
+    model2.load()
 
     # verify loaded model
-    assert loaded_model.model is not None
-    assert loaded_model.scaler is not None
+    assert model2.model is not None
+    assert model2.scaler is not None
 
     # compare predictions
     prob1 = model.predict(
@@ -137,7 +138,7 @@ def test_model_persistence(tmp_path):
         order_side="buy",
     )
 
-    prob2 = loaded_model.predict(
+    prob2 = model2.predict(
         bids=[["100.0", "1.0"]],
         asks=[["101.0", "1.0"]],
         order_price=Decimal("100.0"),

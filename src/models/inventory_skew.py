@@ -64,20 +64,20 @@ class InventorySkew:
 
         # spread calculation (monotonic increase with |inv|, never < min_spread)
         min_spread = mid_price * self.config.min_spread_bps / 10_000.0
-        # use absolute value to ensure monotonic increase in both directions
+        # abs value for monotonic increase in both directions
         abs_inv = abs(inv)
-        # ensure spread increases with inventory magnitude
+        # spread increases with inventory magnitude
         spread = min_spread * (1.0 + abs_inv * self.config.spread_factor)
         half_spread = spread / 2.0
 
         # centre-shift (skew) - directional and inventory-proportional
         # long (+inv): shift centre down -> bid down, ask up
         # short (-inv): shift centre up -> bid up, ask down
-        # use raw inventory for directional skew
+        # raw inventory for directional skew
         centre_shift = -inv * self.config.skew_factor * spread
 
         # raw bid/ask around shifted centre (ask > bid always)
-        # ensure spread is maintained by applying half_spread symmetrically
+        # spread maintained by applying half_spread symmetrically
         bid_price = mid_price + centre_shift - half_spread
         ask_price = mid_price + centre_shift + half_spread
 

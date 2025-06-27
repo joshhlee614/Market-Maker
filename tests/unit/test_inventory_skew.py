@@ -32,15 +32,15 @@ def test_basic_skew_behavior(skew):
     bid_pos, ask_pos = skew.apply_skew(mid_price, 0.5)
     assert bid_pos < bid  # lower bid
     # with positive inventory, we want to encourage selling
-    # this means the spread should be wider and centered lower
+    # spread wider and centered lower
     assert ask_pos - bid_pos > ask - bid  # wider spread
     assert (bid_pos + ask_pos) / 2 < (bid + ask) / 2  # center shifted down
 
     # negative inventory -> encourage buying
     bid_neg, ask_neg = skew.apply_skew(mid_price, -0.5)
     assert bid_neg > bid  # higher bid
-    # with negative inventory, we want to encourage buying
-    # this means the spread should be wider and centered higher
+    # negative inventory means we want to encourage buying
+    # spread wider and centered higher
     assert ask_neg - bid_neg > ask - bid  # wider spread
     assert (bid_neg + ask_neg) / 2 > (bid + ask) / 2  # center shifted up
 
@@ -53,7 +53,7 @@ def test_spread_widening(skew):
     bid0, ask0 = skew.apply_skew(mid_price, 0.0)
     base_spread = ask0 - bid0
 
-    # check spread widens with increasing inventory
+    # spread widens with increasing inventory
     for inv in [0.25, 0.5, 0.75, 1.0]:
         bid, ask = skew.apply_skew(mid_price, inv)
         spread = ask - bid
@@ -68,11 +68,11 @@ def test_minimum_spread(skew):
     mid_price = 100.0
     min_spread = mid_price * skew.config.min_spread_bps / 10_000.0
 
-    # check at max inventory
+    # at max inventory
     bid, ask = skew.apply_skew(mid_price, skew.config.max_position)
     assert ask - bid >= min_spread
 
-    # check at min inventory
+    # at min inventory
     bid, ask = skew.apply_skew(mid_price, -skew.config.max_position)
     assert ask - bid >= min_spread
 
@@ -82,14 +82,14 @@ def test_inventory_normalization(skew):
     mid_price = 100.0
 
     # test values beyond max_position
-    bid1, ask1 = skew.apply_skew(mid_price, 2.0)  # should be clipped to 1.0
-    bid2, ask2 = skew.apply_skew(mid_price, 1.0)  # should be same as above
+    bid1, ask1 = skew.apply_skew(mid_price, 2.0)  # clipped to 1.0
+    bid2, ask2 = skew.apply_skew(mid_price, 1.0)  # same as above
     assert bid1 == bid2
     assert ask1 == ask2
 
     # test values below -max_position
-    bid3, ask3 = skew.apply_skew(mid_price, -2.0)  # should be clipped to -1.0
-    bid4, ask4 = skew.apply_skew(mid_price, -1.0)  # should be same as above
+    bid3, ask3 = skew.apply_skew(mid_price, -2.0)  # clipped to -1.0
+    bid4, ask4 = skew.apply_skew(mid_price, -1.0)  # same as above
     assert bid3 == bid4
     assert ask3 == ask4
 
@@ -164,17 +164,17 @@ def test_skew_spread_interaction():
     bid1, ask1 = skew1.apply_skew(mid_price, inventory)
     bid2, ask2 = skew2.apply_skew(mid_price, inventory)
 
-    # config2 has more aggressive skew, so center should shift more
+    # config2 has more aggressive skew, center shifts more
     center1 = (bid1 + ask1) / 2
     center2 = (bid2 + ask2) / 2
     assert abs(center2 - mid_price) > abs(center1 - mid_price)
 
-    # config1 has more aggressive spread, so spread should be wider
+    # config1 has more aggressive spread, wider spread
     spread1 = ask1 - bid1
     spread2 = ask2 - bid2
     assert spread1 > spread2
 
-    # verify both maintain minimum spread
+    # both maintain minimum spread
     min_spread = mid_price * config1.min_spread_bps / 10_000.0
     assert spread1 >= min_spread
     assert spread2 >= min_spread

@@ -115,7 +115,7 @@ class TestCLIExecution:
             "final_position": 0.1,
         }
 
-        # create args
+        # args
         args = Mock()
         args.data_path = "test_data"
         args.symbol = "btcusdt"
@@ -131,10 +131,10 @@ class TestCLIExecution:
 
             run_backtest(args)
 
-            # verify simulator was called correctly
+            # simulator called correctly
             mock_simulator.assert_called_once_with(
                 symbol="btcusdt",
-                data_path=str(mock_path_instance),
+                data_path="test_data",
                 strategy=mock_strategy.generate_quotes,
             )
             mock_sim.replay_date.assert_called_once()
@@ -156,7 +156,7 @@ class TestCLIExecution:
             "final_position": -0.05,
         }
 
-        # create args
+        # args
         args = Mock()
         args.data_path = "test_data"
         args.symbol = "ethusdt"
@@ -191,7 +191,7 @@ class TestCLIExecution:
         mock_df = Mock()
         mock_sim.get_fills_df.return_value = mock_df
 
-        # create args
+        # args
         args = Mock()
         args.data_path = "test_data"
         args.symbol = "btcusdt"
@@ -205,7 +205,7 @@ class TestCLIExecution:
 
             run_backtest(args)
 
-            # verify output was saved
+            # output saved
             mock_df.to_csv.assert_called_once_with("results.csv", index=False)
 
     @pytest.mark.asyncio
@@ -216,7 +216,7 @@ class TestCLIExecution:
         mock_engine = AsyncMock()
         mock_live_engine.return_value = mock_engine
 
-        # create args
+        # args
         args = Mock()
         args.symbol = "btcusdt"
         args.redis_url = "redis://localhost:6379"
@@ -227,7 +227,7 @@ class TestCLIExecution:
         with patch.dict("os.environ", {}, clear=True):
             await run_live(args)
 
-            # verify engine was created and started
+            # engine created and started
             mock_live_engine.assert_called_once_with(
                 redis_url="redis://localhost:6379",
                 symbol="btcusdt",
@@ -246,7 +246,7 @@ class TestCLIExecution:
         mock_engine = AsyncMock()
         mock_live_engine.return_value = mock_engine
 
-        # create args
+        # args
         args = Mock()
         args.symbol = "ethusdt"
         args.redis_url = "redis://localhost:6379"
@@ -256,7 +256,7 @@ class TestCLIExecution:
 
         await run_live(args)
 
-        # verify engine was created with credentials
+        # engine created with credentials
         mock_live_engine.assert_called_once_with(
             redis_url="redis://localhost:6379",
             symbol="ethusdt",
@@ -273,7 +273,7 @@ class TestCLIExecution:
         mock_engine = AsyncMock()
         mock_live_engine.return_value = mock_engine
 
-        # create args
+        # args
         args = Mock()
         args.symbol = "btcusdt"
         args.redis_url = "redis://localhost:6379"
@@ -287,7 +287,7 @@ class TestCLIExecution:
         ):
             await run_live(args)
 
-            # verify environment credentials were used
+            # environment credentials were used
             mock_live_engine.assert_called_once_with(
                 redis_url="redis://localhost:6379",
                 symbol="btcusdt",
@@ -319,6 +319,7 @@ class TestCLIMain:
         with patch("sys.argv", test_args):
             main()
 
+            # asyncio.run was called
             mock_asyncio_run.assert_called_once()
 
     def test_main_no_command(self):
@@ -327,11 +328,12 @@ class TestCLIMain:
 
         with patch("sys.argv", test_args):
             with patch("sys.exit") as mock_exit:
-                with patch("builtins.print"):  # suppress help output
-                    main()
-                # verify exit was called at least once with code 1
-                assert mock_exit.called
-                assert 1 in [call[0][0] for call in mock_exit.call_args_list]
+                main()
+
+                # exit was called at least once with code 1
+                mock_exit.assert_called()
+                exit_calls = mock_exit.call_args_list
+                assert any(call[0][0] == 1 for call in exit_calls)
 
     def test_main_mainnet_override(self):
         """test mainnet flag overrides testnet"""

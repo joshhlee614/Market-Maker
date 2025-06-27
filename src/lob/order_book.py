@@ -5,6 +5,7 @@ order book implementation for maintaining limit order book state
 from dataclasses import dataclass
 from decimal import Decimal
 from typing import Dict, List, Optional, Tuple
+import time
 
 
 @dataclass
@@ -99,13 +100,13 @@ class OrderBook:
                 maker = self.asks[price][0]
                 match_size = min(order.size, maker.size)
 
-                # create fill
+                # fill
                 fill = Fill(
                     taker_order_id=order.order_id,
                     maker_order_id=maker.order_id,
                     price=price,
                     size=match_size,
-                    timestamp=order.timestamp,
+                    timestamp=int(time.time() * 1000),
                 )
                 fills.append(fill)
 
@@ -135,13 +136,13 @@ class OrderBook:
                 maker = self.bids[price][0]
                 match_size = min(order.size, maker.size)
 
-                # create fill
+                # fill
                 fill = Fill(
                     taker_order_id=order.order_id,
                     maker_order_id=maker.order_id,
                     price=price,
                     size=match_size,
-                    timestamp=order.timestamp,
+                    timestamp=int(time.time() * 1000),
                 )
                 fills.append(fill)
 

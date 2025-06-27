@@ -16,28 +16,26 @@ A high-frequency market making system for cryptocurrency markets, focusing on Bi
 
 - Python 3.11
 - Redis (for real-time state management)
-- PostgreSQL (for historical data storage)
 
 ## Project Structure
 
 ```
-mm_project/
+Market_Maker/
 ├── src/                      # Source code
-│   ├── common/              # Utilities and constants
+│   ├── cli.py               # Command line interface
+│   ├── common/              # Shared utilities
 │   ├── data_feed/           # Market data ingestion
-│   ├── storage/             # State and persistence
 │   ├── lob/                 # Limit Order Book engine
 │   ├── features/            # Feature generation
 │   ├── models/              # ML models
 │   ├── strategy/            # Trading strategies
 │   ├── backtest/            # Backtesting engine
-│   ├── live/                # Live trading
-│   └── api/                 # REST API
+│   └── live/                # Live trading
 ├── tests/                   # Test suite
 ├── data/                    # Data storage
-├── configs/                 # Configuration files
-├── notebooks/              # Analysis notebooks
-└── docker/                 # Deployment configs
+├── scripts/                 # Helper scripts
+├── docker/                  # Monitoring stack
+└── docs/                    # Documentation
 ```
 
 ## Setup
@@ -70,12 +68,12 @@ make test
 
 ### Backtesting
 ```bash
-make backtest
+python -m src.cli backtest --start-date 2024-01-01 --symbol BTCUSDT
 ```
 
 ### Live Trading
 ```bash
-make live
+python -m src.cli live --api-key <key> --api-secret <secret>
 ```
 
 ## Development

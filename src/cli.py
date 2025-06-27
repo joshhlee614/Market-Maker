@@ -41,14 +41,14 @@ def run_backtest(args) -> None:
         logger.error(f"data path does not exist: {data_path}")
         sys.exit(1)
 
-    # create strategy instance
-    strategy = NaiveMaker()
+    # strategy instance
+    naive_maker = NaiveMaker()
 
-    # create and configure simulator
+    # configure simulator
     simulator = Simulator(
         symbol=args.symbol,
-        data_path=str(data_path),
-        strategy=strategy.generate_quotes,
+        data_path=args.data_path,
+        strategy=naive_maker.generate_quotes,
     )
 
     try:
@@ -99,7 +99,7 @@ async def run_live(args) -> None:
         api_key = None
         api_secret = None
 
-    # create and configure live engine
+    # configure live engine
     engine = LiveEngine(
         redis_url=args.redis_url,
         symbol=args.symbol,
