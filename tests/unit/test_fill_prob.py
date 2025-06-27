@@ -3,7 +3,6 @@ unit tests for fill probability model
 """
 
 from decimal import Decimal
-import random
 
 from models.fill_prob import FillFeatures, FillProbabilityModel
 

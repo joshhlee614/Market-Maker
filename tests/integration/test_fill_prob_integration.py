@@ -17,7 +17,9 @@ from strategy.naive_maker import NaiveMaker, NaiveMakerConfig
 def test_fill_prob_with_backtest():
     """test fill probability model with backtest data"""
     # create simulator with moderate spread to generate some fills but not too many
-    config = NaiveMakerConfig(spread=Decimal("0.01"))  # 0.01 spread (reasonable for testing)
+    config = NaiveMakerConfig(
+        spread=Decimal("0.01")
+    )  # 0.01 spread (reasonable for testing)
     naive_maker = NaiveMaker(config)
     simulator = Simulator(
         symbol="btcusdt",
@@ -95,7 +97,9 @@ def test_fill_prob_with_backtest():
 def test_fill_prob_feature_importance():
     """test that model learns meaningful feature relationships"""
     # create simulator with moderate spread to generate some fills
-    config = NaiveMakerConfig(spread=Decimal("0.01"))  # 0.01 spread (reasonable for testing)
+    config = NaiveMakerConfig(
+        spread=Decimal("0.01")
+    )  # 0.01 spread (reasonable for testing)
     naive_maker = NaiveMaker(config)
     simulator = Simulator(
         symbol="btcusdt",
@@ -141,9 +145,11 @@ def test_fill_prob_feature_importance():
         )
         test_predictions.append(prob)
         assert 0 <= prob <= 1, f"invalid probability: {prob}"
-    
+
     # verify predictions show some variation (not all identical)
     unique_predictions = len(set(test_predictions))
     assert unique_predictions >= 1, "model produces no predictions"
-    
-    print(f"model produced {unique_predictions} unique predictions from {len(test_predictions)} tests")
+
+    print(
+        f"model produced {unique_predictions} unique predictions from {len(test_predictions)} tests"
+    )

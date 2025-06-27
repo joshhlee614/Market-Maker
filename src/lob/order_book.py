@@ -2,10 +2,10 @@
 order book implementation for maintaining limit order book state
 """
 
+import time
 from dataclasses import dataclass
 from decimal import Decimal
 from typing import Dict, List, Optional, Tuple
-import time
 
 
 @dataclass

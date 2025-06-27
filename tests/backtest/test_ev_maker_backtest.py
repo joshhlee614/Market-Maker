@@ -167,9 +167,10 @@ def test_inventory_skew_regression():
             <= baseline_results["position_excursion"] + 0.001  # small tolerance
         ), "Inventory skew should reduce position excursions"
 
-        assert abs(inventory_results["final_position"]) <= abs(
-            baseline_results["final_position"]
-        ) + 0.001, "Inventory skew should reduce end-of-day positions"
+        assert (
+            abs(inventory_results["final_position"])
+            <= abs(baseline_results["final_position"]) + 0.001
+        ), "Inventory skew should reduce end-of-day positions"
 
         if baseline_results["pnl_std"] > 0:
             assert (
