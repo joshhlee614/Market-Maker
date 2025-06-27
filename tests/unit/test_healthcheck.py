@@ -1,6 +1,7 @@
 """
 tests for healthcheck metrics functionality
 """
+
 from unittest.mock import AsyncMock, patch
 
 import pytest
