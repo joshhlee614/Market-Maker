@@ -30,9 +30,17 @@ clean:
 	find . -type d -name "build" -exec rm -r {} +
 
 backtest:
-	python -m src.cli backtest
+	@echo "Running backtest for a single date (specify with: make backtest DATE=2023-01-01)"
+	@if [ -z "$(DATE)" ]; then \
+		echo "Example: make backtest DATE=2023-01-01"; \
+		echo "Or run directly: python -m src.cli backtest --date 2023-01-01"; \
+		python -m src.cli backtest --help; \
+	else \
+		python -m src.cli backtest --date $(DATE); \
+	fi
 
 live:
+	@echo "Starting live trading engine in simulation mode"
 	python -m src.cli live
 
 check-env:
