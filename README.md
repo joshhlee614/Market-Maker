@@ -84,6 +84,52 @@ make live
 - Write unit tests for new features
 - Run `make lint` before committing
 
+## Development Setup
+
+**Important**: This project requires Python 3.11. Using a different Python version will cause CI failures due to formatting differences.
+
+### Quick Start
+
+1. **Ensure Python 3.11 is installed**
+   ```bash
+   python --version  # Should show Python 3.11.x
+   ```
+
+2. **Activate the virtual environment**
+   ```bash
+   source venv/bin/activate
+   ```
+
+3. **Verify you're using the correct Python version**
+   ```bash
+   python --version  # Should show Python 3.11.x
+   ```
+
+4. **Install dependencies**
+   ```bash
+   make install
+   ```
+
+5. **Set up pre-commit hooks (recommended)**
+   ```bash
+   pip install pre-commit
+   pre-commit install
+   ```
+
+### Before Making Changes
+
+Always ensure you're using the project's virtual environment:
+```bash
+source venv/bin/activate
+python --version  # Verify Python 3.11.x
+make lint         # Run linting checks
+```
+
+### Common Issues
+
+- **CI linting failures**: Usually caused by using the wrong Python version locally
+- **Solution**: Always use `source venv/bin/activate` before development
+
 ## License
 
 MIT 

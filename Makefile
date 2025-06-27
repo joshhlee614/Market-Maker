@@ -1,4 +1,4 @@
-.PHONY: test lint clean backtest live install
+.PHONY: test lint clean backtest live install check-env setup-dev
 
 install:
 	pip install -e ".[dev]"
@@ -33,4 +33,12 @@ backtest:
 	python -m src.cli backtest
 
 live:
-	python -m src.cli live 
+	python -m src.cli live
+
+check-env:
+	@echo "Checking development environment..."
+	@python -c "import sys; v=sys.version_info; assert v.major==3 and v.minor==11, f'Python 3.11 required, got {v.major}.{v.minor}'; print(f'✅ Python {v.major}.{v.minor}.{v.micro}')"
+	@echo "✅ Environment check passed"
+
+setup-dev:
+	@bash scripts/setup-dev.sh 
