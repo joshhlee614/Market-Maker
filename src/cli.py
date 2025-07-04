@@ -20,7 +20,7 @@ from pathlib import Path
 
 from backtest.simulator import Simulator
 from live.engine import LiveEngine
-from strategy.naive_maker import NaiveMaker
+from strategy.naive_maker import NaiveMaker, NaiveMakerConfig
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
@@ -42,13 +42,14 @@ def run_backtest(args) -> None:
         sys.exit(1)
 
     # strategy instance
-    naive_maker = NaiveMaker()
+    config = NaiveMakerConfig()
+    naive_maker = NaiveMaker(config)
 
     # configure simulator
     simulator = Simulator(
         symbol=args.symbol,
         data_path=args.data_path,
-        strategy=naive_maker.generate_quotes,
+        strategy=naive_maker.quote_prices,
     )
 
     try:
@@ -68,7 +69,8 @@ def run_backtest(args) -> None:
         pnl_summary = simulator.get_pnl_summary()
         logger.info("backtest completed successfully")
         logger.info(f"total pnl: {pnl_summary['total_pnl']:.4f}")
-        logger.info(f"total fills: {pnl_summary['total_fills']}")
+        logger.info(f"total fills: {pnl_summary['num_fills']}")
+        logger.info(f"average fill size: {pnl_summary['avg_fill_size']:.6f}")
         logger.info(f"final position: {pnl_summary['final_position']:.6f}")
 
         # save results if requested

@@ -99,19 +99,23 @@ class TestCLIExecution:
 
     @patch("cli.Simulator")
     @patch("cli.NaiveMaker")
-    def test_run_backtest_single_date(self, mock_naive_maker, mock_simulator):
+    @patch("cli.NaiveMakerConfig")
+    def test_run_backtest_single_date(
+        self, mock_naive_maker_config, mock_naive_maker, mock_simulator
+    ):
         """test backtest execution with single date"""
         # mock strategy
         mock_strategy = Mock()
         mock_naive_maker.return_value = mock_strategy
-        mock_strategy.generate_quotes = Mock()
+        mock_strategy.quote_prices = Mock()
 
         # mock simulator
         mock_sim = Mock()
         mock_simulator.return_value = mock_sim
         mock_sim.get_pnl_summary.return_value = {
             "total_pnl": 100.5,
-            "total_fills": 10,
+            "num_fills": 10,
+            "avg_fill_size": 0.001,
             "final_position": 0.1,
         }
 
@@ -135,13 +139,16 @@ class TestCLIExecution:
             mock_simulator.assert_called_once_with(
                 symbol="btcusdt",
                 data_path="test_data",
-                strategy=mock_strategy.generate_quotes,
+                strategy=mock_strategy.quote_prices,
             )
             mock_sim.replay_date.assert_called_once()
 
     @patch("cli.Simulator")
     @patch("cli.NaiveMaker")
-    def test_run_backtest_date_range(self, mock_naive_maker, mock_simulator):
+    @patch("cli.NaiveMakerConfig")
+    def test_run_backtest_date_range(
+        self, mock_naive_maker_config, mock_naive_maker, mock_simulator
+    ):
         """test backtest execution with date range"""
         # mock strategy
         mock_strategy = Mock()
@@ -152,7 +159,8 @@ class TestCLIExecution:
         mock_simulator.return_value = mock_sim
         mock_sim.get_pnl_summary.return_value = {
             "total_pnl": 200.0,
-            "total_fills": 20,
+            "num_fills": 20,
+            "avg_fill_size": 0.002,
             "final_position": -0.05,
         }
 
@@ -174,7 +182,10 @@ class TestCLIExecution:
 
     @patch("cli.Simulator")
     @patch("cli.NaiveMaker")
-    def test_run_backtest_with_output(self, mock_naive_maker, mock_simulator):
+    @patch("cli.NaiveMakerConfig")
+    def test_run_backtest_with_output(
+        self, mock_naive_maker_config, mock_naive_maker, mock_simulator
+    ):
         """test backtest execution with output file"""
         # mock strategy and simulator
         mock_strategy = Mock()
@@ -184,7 +195,8 @@ class TestCLIExecution:
         mock_simulator.return_value = mock_sim
         mock_sim.get_pnl_summary.return_value = {
             "total_pnl": 50.0,
-            "total_fills": 5,
+            "num_fills": 5,
+            "avg_fill_size": 0.001,
             "final_position": 0.0,
         }
 
